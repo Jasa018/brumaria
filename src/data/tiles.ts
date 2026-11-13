@@ -93,6 +93,9 @@ export const O = {
   SNOWPINE: 38,
   DOCK_POST: 39,
   RUBBLE: 40,
+  DOOR_OPEN: 41,
+  GATE: 42,
+  PLANT: 43,
 } as const;
 
 export interface ObjectDef {
@@ -118,7 +121,11 @@ export const OBJECTS: Record<number, ObjectDef> = {
   [O.BOULDER]: { name: 'peñasco', block: true, map: '#6f6a64' },
   [O.WALL]: { name: 'muro de piedra', block: true, sight: true, map: '#5c5c66', tall: true },
   [O.WOODWALL]: { name: 'pared de madera', block: true, sight: true, map: '#5e3b1c', tall: true },
-  [O.DOOR]: { name: 'puerta', block: false, map: '#9b6b38' },
+  // Las puertas cerradas y el portón no bloquean a nivel de mapa (para la conectividad); la simulación decide quién pasa.
+  [O.DOOR]: { name: 'puerta cerrada', block: false, sight: true, map: '#9b6b38', desc: 'Haz clic a su lado para abrirla.' },
+  [O.DOOR_OPEN]: { name: 'puerta abierta', block: false, map: '#9b6b38', desc: 'Haz clic a su lado para cerrarla.' },
+  [O.GATE]: { name: 'portón de la ciudad', block: false, sight: true, map: '#9a9aa0', desc: 'Vigilado por los guardias de Albor.' },
+  [O.PLANT]: { name: 'maceta', block: true },
   [O.STAIRS_DOWN]: { name: 'escalera que baja', block: false, map: '#ffd23f', desc: 'Lleva a un nivel inferior.' },
   [O.STAIRS_UP]: { name: 'escalera que sube', block: false, map: '#ffd23f', desc: 'Lleva a un nivel superior.' },
   [O.FENCE]: { name: 'valla', block: true, map: '#7c5a30' },

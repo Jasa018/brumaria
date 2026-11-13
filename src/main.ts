@@ -4,6 +4,7 @@ import { Game, newPlayerData } from './game/game';
 import { generateWorld } from './game/world';
 import type { PlayerData } from './game/types';
 import { VOCATIONS } from './data/vocations';
+import { O } from './data/tiles';
 import { Renderer, drawMinimap } from './gfx/render';
 import { isMuted, play, toggleMute } from './ui/audio';
 import { $, closeAllWins, closeMenu, getWin, closeWin } from './ui/dom';
@@ -77,9 +78,9 @@ async function boot() {
 
   if (choice.action === 'new') {
     panels.log(`Bienvenido a Brumaria, ${data.name}.`, 'yellow');
-    panels.log('Estás en el templo de Albor. Sal y busca al Anciano Teodoro (casa del suroeste): haz clic sobre él o escribe "hola" a su lado para pedirle una misión.', 'white');
-    panels.log('Pulsa H para ver los controles. La partida se guarda sola.', 'gray');
-    banner('Isla de Albor');
+    panels.log('Estás en el templo de Albor, una ciudad amurallada. El portón (al este) está cerrado: habla con el capitán Rurik, en el cuartel junto a él, para saber cómo salir.', 'white');
+    panels.log('Las puertas se abren con un clic a su lado. Haz clic en un NPC o escribe "hola" junto a él para hablar. Pulsa H para ver los controles.', 'gray');
+    banner('Albor');
   } else {
     panels.log(`Bienvenido de nuevo, ${data.name}.`, 'yellow');
     banner(map.areaName(game.player.x, game.player.y, game.player.z));
@@ -172,6 +173,11 @@ async function boot() {
     const c = game.creatureAt(t.x, t.y, p.z);
     if (c && c.kind === 'monster') return game.setTarget(p.target === c.id ? null : c.id);
     if (c && c.kind === 'npc') return game.talkTo(c.id);
+    const o = game.map.o(t.x, t.y, p.z);
+    if ((o === O.DOOR || o === O.DOOR_OPEN) && !c) {
+      if (Math.max(Math.abs(t.x - p.x), Math.abs(t.y - p.y)) <= 1) return void game.toggleDoor(t.x, t.y);
+      return void game.walkTo(t.x, t.y);
+    }
     const corpse = game.corpseAt(t.x, t.y, p.z);
     if (corpse && game.canLoot(corpse)) return openLoot(game, corpse, panels);
     if (c && c.kind === 'player') return;

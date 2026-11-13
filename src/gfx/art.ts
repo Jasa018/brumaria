@@ -328,6 +328,7 @@ const ROCK: Record<Style, { top: string[]; south: string; east: string; line: st
   mine: { top: ['#1f1810', '#261d13', '#2d2317'], south: '#5e4a2e', east: '#463722', line: '#33281a' },
   lava: { top: ['#160f0e', '#1c1311', '#221714'], south: '#4a2a20', east: '#371f18', line: '#ff5a1a' },
   flooded: { top: ['#141c24', '#19232d', '#1f2a36'], south: '#3e5466', east: '#2e3f4d', line: '#25333f' },
+  sewer: { top: ['#161a14', '#1b2019', '#20261e'], south: '#4a5444', east: '#373f33', line: '#262c22' },
 };
 
 const rockCache = new Map<string, HTMLCanvasElement>();
@@ -356,7 +357,7 @@ export function rockBlock(style: Style, x: number, y: number): HTMLCanvasElement
   poly(c, [[0, 32], [32, 32], [48, 48], [16, 48]], k.south);
   // cara este
   poly(c, [[32, 0], [48, 16], [48, 48], [32, 32]], k.east);
-  if (style === 'crypt') {
+  if (style === 'crypt' || style === 'sewer') {
     c.save();
     c.beginPath();
     c.moveTo(0, 32);
@@ -696,4 +697,75 @@ export function humanoid(c: Ctx, L: Look, dir: number, f: number) {
     for (let t = 0; t <= 20; t++) R(c, hx + 2 + Math.round(Math.sin((t / 20) * Math.PI) * 4), hy - 12 + t, 2, 1, '#a8743c');
     R(c, hx + 2, hy - 12, 1, 21, 'rgba(240,240,240,0.7)');
   }
+}
+
+// =====================================================================
+//                    Puertas, portón y tejados
+// =====================================================================
+
+/** Puerta cerrada: un bloque como el muro, con la hoja de madera encima. */
+export function doorBlock(wood: boolean, v: number): HTMLCanvasElement {
+  const [b, c] = canvas(48, 48);
+  c.drawImage(wallBlock(wood, v), 0, 0);
+  // hoja de la puerta sobre la cara superior y la cara sur
+  R(c, 3, 2, 26, 29, '#7a4e24');
+  for (let x = 3; x < 29; x += 5) R(c, x, 2, 1, 29, '#5a3816');
+  R(c, 3, 2, 26, 1, '#a8743c');
+  R(c, 3, 8, 26, 2, '#3a3a40');
+  R(c, 3, 23, 26, 2, '#3a3a40');
+  R(c, 23, 15, 3, 3, '#d9b44a');
+  P1(c, 23, 15, '#fff0a0');
+  poly(c, [[3, 32], [29, 32], [45, 48], [19, 48]], '#5e3c1c');
+  for (let x = 5; x < 29; x += 5) poly(c, [[x, 32], [x + 1, 32], [x + 17, 48], [x + 16, 48]], '#4a2e14');
+  return finish(b, false);
+}
+
+/** Portón cerrado: rejas de hierro. */
+export function gateBlock(v: number): HTMLCanvasElement {
+  const [b, c] = canvas(48, 48);
+  c.drawImage(wallBlock(false, v), 0, 0);
+  R(c, 1, 1, 30, 30, '#1c1c22');
+  for (let x = 3; x < 31; x += 5) {
+    R(c, x, 1, 2, 30, '#8a8a94');
+    R(c, x, 1, 1, 30, '#b8b8c2');
+  }
+  for (const y of [7, 22]) R(c, 1, y, 30, 2, '#6a6a74');
+  poly(c, [[1, 32], [31, 32], [47, 48], [17, 48]], '#2a2a30');
+  for (let x = 3; x < 31; x += 5) poly(c, [[x, 32], [x + 2, 32], [x + 18, 48], [x + 16, 48]], '#8a8a94');
+  return finish(b, false);
+}
+
+/** Portón abierto: postes y la reja levantada arriba. */
+export function gateOpenSprite(): HTMLCanvasElement {
+  const [b, c] = canvas(32, 32);
+  R(c, 0, 0, 4, 32, '#6c6c78');
+  R(c, 28, 0, 4, 32, '#555560');
+  R(c, 0, 0, 32, 4, '#3a3a40');
+  for (let x = 5; x < 28; x += 5) R(c, x, 0, 2, 4, '#8a8a94');
+  return finish(b);
+}
+
+const roofCache = new Map<string, HTMLCanvasElement>();
+
+/** Teja roja; los bordes sin tejado vecino llevan alero oscuro. mask: bits N=1, E=2, S=4, O=8 (con tejado). */
+export function roofSprite(mask: number, v: number): HTMLCanvasElement {
+  const key = mask + ':' + v;
+  let cv = roofCache.get(key);
+  if (cv) return cv;
+  const [b, c] = canvas(32, 32);
+  const r = prng(800 + v);
+  const base = ['#8e3a28', '#86362a', '#963f2c'][v];
+  R(c, 0, 0, 32, 32, base);
+  for (let row = 0; row < 32; row += 6) {
+    R(c, 0, row + 5, 32, 1, '#5a2018');
+    R(c, 0, row, 32, 1, shade(base, 0.18));
+    for (let x = (row / 6) % 2 ? 0 : 4; x < 32; x += 8) R(c, x, row, 1, 5, '#6a281c');
+  }
+  for (let i = 0; i < 20; i++) P1(c, r() * 32, r() * 32, shade(base, r() < 0.5 ? 0.12 : -0.15));
+  if (!(mask & 1)) R(c, 0, 0, 32, 3, '#b8584a');
+  if (!(mask & 2)) R(c, 29, 0, 3, 32, '#4a1a12');
+  if (!(mask & 4)) R(c, 0, 29, 32, 3, '#3e1610');
+  if (!(mask & 8)) R(c, 0, 0, 3, 32, '#a84c3c');
+  roofCache.set(key, b);
+  return (cv = b);
 }

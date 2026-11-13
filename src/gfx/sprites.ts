@@ -3,9 +3,9 @@ import { G, O } from '../data/tiles';
 import type { ItemDef } from '../data/items';
 import type { Look } from '../data/monsters';
 import { tileHash } from '../game/rng';
-import { boulderSprite, bushSprite, deadTree, drawGround, finish, humanoid, mountainBlock, pineSprite, treeSprite, wallBlock } from './art';
+import { boulderSprite, bushSprite, deadTree, doorBlock, drawGround, finish, gateBlock, gateOpenSprite, humanoid, mountainBlock, pineSprite, treeSprite, wallBlock } from './art';
 
-export { edgeSprite, GROUND_PRIO, rockBlock, rockTop } from './art';
+export { edgeSprite, GROUND_PRIO, rockBlock, rockTop, roofSprite } from './art';
 
 export const TILE = 32;
 const P = 2; // tamaño de un píxel lógico
@@ -79,34 +79,37 @@ export function groundSprite(g: number, x: number, y: number, z: number, frame: 
 
 const objCache = new Map<string, HTMLCanvasElement>();
 
+/** `flag` depende del objeto: nieve (montaña), madera (puerta) o abierto (portón). */
 /** Desplazamiento del dibujo respecto a la esquina de su casilla (la altura se proyecta arriba a la izquierda). */
-export function objectOffset(o: number): [number, number] {
-  if (o === O.WALL || o === O.WOODWALL) return [-16, -16];
+export function objectOffset(o: number, open = false): [number, number] {
+  if (o === O.WALL || o === O.WOODWALL || o === O.DOOR || (o === O.GATE && !open)) return [-16, -16];
   if (o === O.MOUNTAIN) return [-24, -24];
   if (o === O.TREE || o === O.PINE || o === O.SNOWPINE || o === O.DEADTREE) return [-32, -32];
   if (o === O.LAMP || o === O.STATUE || o === O.BOOKSHELF) return [0, -16];
   return [0, 0];
 }
 
-export function objectSprite(o: number, x: number, y: number, frame: number, snow = false): HTMLCanvasElement {
+export function objectSprite(o: number, x: number, y: number, frame: number, flag = false): HTMLCanvasElement {
   const v = Math.floor(tileHash(x, y, 3) * 3);
   const anim = o === O.BRAZIER || o === O.FOUNTAIN || o === O.FURNACE || o === O.CRYSTAL || o === O.LAMP;
-  const key = `${o}:${v}:${anim ? frame % 4 : 0}:${snow ? 1 : 0}`;
+  const key = `${o}:${v}:${anim ? frame % 4 : 0}:${flag ? 1 : 0}`;
   let cv = objCache.get(key);
   if (!cv) {
-    cv = drawObject(o, v, anim ? frame % 4 : 0, snow);
+    cv = drawObject(o, v, anim ? frame % 4 : 0, flag);
     objCache.set(key, cv);
   }
   return cv;
 }
 
-function drawObject(o: number, v: number, f: number, snow: boolean): HTMLCanvasElement {
+function drawObject(o: number, v: number, f: number, flag: boolean): HTMLCanvasElement {
   switch (o) {
     case O.TREE: return treeSprite(v);
     case O.PINE: return pineSprite(v, false);
     case O.SNOWPINE: return pineSprite(v, true);
     case O.DEADTREE: return deadTree(v);
-    case O.MOUNTAIN: return mountainBlock(v, snow);
+    case O.MOUNTAIN: return mountainBlock(v, flag);
+    case O.DOOR: return doorBlock(flag, v);
+    case O.GATE: return flag ? gateOpenSprite() : gateBlock(v);
     case O.WALL: return wallBlock(false, v);
     case O.WOODWALL: return wallBlock(true, v);
     case O.BUSH: return bushSprite(v);
@@ -118,11 +121,22 @@ function drawObject(o: number, v: number, f: number, snow: boolean): HTMLCanvasE
   const base = H - 16; // fila lógica donde empieza la casilla
   const at = (yy: number) => base + yy;
   switch (o) {
-    case O.DOOR:
-      rect(c, 2, 0, 12, 16, '#3a2410');
-      rect(c, 3, 1, 10, 15, '#8a5a2b');
-      rect(c, 3, 1, 2, 15, '#6b4420');
-      px(c, 11, 8, '#d9b44a');
+    case O.DOOR_OPEN:
+      // marco y hoja abierta contra el lateral
+      rect(c, 0, 0, 2, 16, '#5e3c1c');
+      rect(c, 14, 0, 2, 16, '#5e3c1c');
+      rect(c, 2, 0, 12, 1, '#3a2410');
+      rect(c, 2, 1, 3, 13, '#8a5a2b');
+      rect(c, 2, 1, 1, 13, '#a8743c');
+      px(c, 4, 7, '#d9b44a');
+      break;
+    case O.PLANT:
+      rect(c, 5, 10, 6, 5, '#9a5a2b');
+      rect(c, 5, 10, 6, 1, '#b8743c');
+      disc(c, 8, 6, 4, '#2f7a2a');
+      px(c, 6, 4, '#4caf50');
+      px(c, 10, 6, '#4caf50');
+      px(c, 8, 3, '#e05555');
       break;
     case O.STAIRS_DOWN:
       rect(c, 1, 1, 14, 14, '#1a1410');

@@ -30,18 +30,28 @@ export interface QuestDef {
 
 export const QUESTS: QuestDef[] = [
   {
+    id: 'ductos', name: 'Los Ductos de Albor', giver: 'capitan_rurik',
+    offer: 'Nadie sale de Albor sin demostrar su valía. Bajo la ciudad están los {Ductos}, infestados de alimañas. Su rey, una rata enorme, vive en lo más hondo. Mátalo y tráeme su {corona}. ¿Aceptas?',
+    accept: 'Bien. La entrada es la rejilla de la plaza, en el centro de la ciudad. Lleva comida y pociones, y no te fíes de la oscuridad.',
+    progress: 'Los guardias no abrirán el portón hasta que me traigas la {corona} del Rey de las Ratas.',
+    done: '¡Por los dioses, lo has logrado! Las puertas de Albor están abiertas para ti. Fuera están los Campos de Albor y, siguiendo el camino al este, la capital, Valcorona.',
+    journal: 'Baja a los Ductos por la rejilla de la plaza de Albor, mata al Rey de las Ratas y lleva su corona al capitán Rurik, en el cuartel junto al portón.',
+    objective: { type: 'bring', item: 'corona_rata', count: 1 },
+    reward: { gold: 80, exp: 400, items: [['pocion_vida', 3]] },
+  },
+  {
     id: 'ratas', name: 'Ratas en el granero', giver: 'teodoro',
-    offer: 'Las ratas de la cueva del norte se están comiendo el grano de Albor. ¿Podrías matar {10 ratas}? ¿Sí o no?',
-    accept: 'Bien dicho. La cueva está al norte del pueblo, siguiendo el camino. Lleva {comida}.',
+    offer: 'Las ratas de los {Ductos}, bajo la ciudad, se están comiendo el grano de Albor. ¿Podrías matar {10 ratas}? ¿Sí o no?',
+    accept: 'Bien dicho. Se baja por la rejilla de la plaza. Lleva {comida}.',
     progress: 'Aún quedan ratas. Vuelve cuando hayas matado {10}.',
     done: '¡Magnífico! Albor te lo agradece. Toma este escudo, lo necesitarás.',
-    journal: 'Mata 10 ratas en la cueva al norte de Albor.',
+    journal: 'Mata 10 ratas en los Ductos, bajo Albor (o en la Cueva de las Ratas, fuera de la ciudad).',
     objective: { type: 'kill', monsters: ['rata'], count: 10, label: 'ratas' },
     reward: { gold: 40, exp: 100, items: [['escudo_madera', 1]] },
   },
   {
     id: 'lobos', name: 'Pieles para el invierno', giver: 'brann',
-    offer: 'Necesito {3 pieles de lobo} para forrar unas capas. Los lobos rondan el noreste de la isla. ¿Me las traes?',
+    offer: 'Necesito {3 pieles de lobo} para forrar unas capas. Los lobos rondan los Campos de Albor, al norte de la muralla. ¿Me las traes?',
     accept: 'Te espero aquí, junto al yunque.',
     progress: 'Todavía me faltan pieles. Necesito {3}.',
     done: 'Buenas pieles. Ten, un casco de verdad para esa cabeza tuya.',

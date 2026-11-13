@@ -1,6 +1,6 @@
 // Generación del mundo. Sin DOM: lo usa también scripts/sim.ts en Node.
 import { G, GROUNDS, O, OBJECTS } from '../data/tiles';
-import { AREAS, CAVES, ROADS, SURFACE_SPAWNS, TOWNS, WORLD_H, WORLD_SEED, WORLD_W, WORLD_Z, type CaveDef, type CaveStyle } from '../data/world';
+import { AREAS, CAVES, ROADS, SURFACE_SPAWNS, TOWNS, UPPER_Z, WORLD_H, WORLD_SEED, WORLD_W, WORLD_Z, type CaveDef, type CaveStyle } from '../data/world';
 import { MONSTERS } from '../data/monsters';
 import { Rng, fbm } from './rng';
 
@@ -61,16 +61,23 @@ export class WorldMap {
   temples: Record<string, Pos> = {};
   towns: TownRect[] = [];
   caveEntrances: Record<string, Pos> = {};
+  /** Tejados sobre los edificios (solo superficie). */
+  roof: Uint8Array = new Uint8Array(0);
   warnings: string[] = [];
 
   constructor() {
     for (let z = 0; z < this.Z; z++) {
       const n = this.W * this.H;
-      this.ground.push(new Uint8Array(n).fill(z === 0 ? G.SEA : G.ROCK));
+      this.ground.push(new Uint8Array(n).fill(z === 0 ? G.SEA : z === UPPER_Z ? G.VOID : G.ROCK));
       this.obj.push(new Uint8Array(n));
       this.pz.push(new Uint8Array(n));
       this.area.push(new Uint8Array(n));
     }
+    this.roof = new Uint8Array(this.W * this.H);
+  }
+
+  hasRoof(x: number, y: number): boolean {
+    return this.inBounds(x, y) && this.roof[y * this.W + x] === 1;
   }
 
   key(x: number, y: number, z: number): number {
@@ -184,15 +191,18 @@ export class WorldMap {
   }
 
   private biome: Uint8Array = new Uint8Array(0); // 0 mar, 1 llanura, 2 bosque, 3 montaña, 4 pantano
+  /** Crestas entre regiones: 0 no, 1 bosque cerrado, 2 roca. */
+  private ridge: Uint8Array = new Uint8Array(0);
 
   private genTerrain(_rng: Rng) {
     const S = WORLD_SEED;
     const W = this.W;
     const H = this.H;
     this.biome = new Uint8Array(W * H);
+    this.ridge = new Uint8Array(W * H);
     const centers: [number, number, number][] = [
-      [130, 110, 1], [100, 95, 1], [150, 135, 1], [90, 125, 1], [160, 85, 1],
-      [100, 40, 2], [135, 35, 2], [75, 70, 2], [70, 40, 2],
+      [130, 110, 1], [100, 95, 1], [150, 135, 1], [90, 125, 1], [160, 85, 1], [60, 130, 1], [40, 160, 1],
+      [100, 40, 2], [135, 35, 2], [75, 70, 2], [70, 40, 2], [38, 92, 2],
       [200, 30, 3], [215, 55, 3], [182, 42, 3],
       [200, 115, 4], [215, 135, 4], [178, 138, 4],
     ];
@@ -200,34 +210,33 @@ export class WorldMap {
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
         const n = fbm(x / 22, y / 22, S) - 0.5;
-        const dx = (x - 140) / 92;
-        const dy = (y - 82) / 74;
+        const dx = (x - 135) / 118;
+        const dy = (y - 90) / 82;
         const eMain = dx ** 4 + dy ** 4 + n * 0.9;
-        const ix = (x - 32) / 26;
-        const iy = (y - 130) / 20;
-        const rawIsl = ix * ix + iy * iy;
-        const eIsl = rawIsl + n * 0.6;
-        let land: 0 | 1 | 2 = eIsl < 1 ? 2 : eMain < 1 ? 1 : 0;
-        if (land === 1 && rawIsl < 2.0) land = 0; // canal entre la isla y el continente
-        if (x < 5 || y < 5 || x >= W - 5 || y >= H - 5) land = 0;
+        let land = eMain < 1;
+        if (x < 5 || y < 5 || x >= W - 5 || y >= H - 5) land = false;
         if (!land) continue;
-        let b: number;
-        if (land === 2) {
-          b = fbm(x / 10, y / 10, S + 9) > 0.6 ? 2 : 1;
-        } else {
-          const px = x + (fbm(x / 15, y / 15, S + 5) - 0.5) * 34;
-          const py = y + (fbm(x / 15, y / 15, S + 6) - 0.5) * 34;
-          let best = 1e9;
-          b = 1;
-          for (const [cx, cy, cb] of centers) {
-            const d = (px - cx) ** 2 + (py - cy) ** 2;
-            if (d < best) {
-              best = d;
-              b = cb;
-            }
+        const px = x + (fbm(x / 15, y / 15, S + 5) - 0.5) * 34;
+        const py = y + (fbm(x / 15, y / 15, S + 6) - 0.5) * 34;
+        let best = 1e9;
+        let second = 1e9;
+        let b = 1;
+        let b2 = 1;
+        for (const [cx, cy, cb] of centers) {
+          const d = (px - cx) ** 2 + (py - cy) ** 2;
+          if (d < best) {
+            second = best;
+            b2 = b;
+            best = d;
+            b = cb;
+          } else if (d < second) {
+            second = d;
+            b2 = cb;
           }
         }
         this.biome[i] = b;
+        // Las fronteras entre regiones son crestas de roca o bosque cerrado: el mapa se recorre por pasos
+        if (Math.sqrt(second) - Math.sqrt(best) < 2.6) this.ridge[i] = b === 3 || b2 === 3 ? 2 : 1;
         const v = fbm(x / 8, y / 8, S + 21);
         let gr: number = G.GRASS;
         if (b === 1) gr = v > 0.72 ? G.DIRT : G.GRASS;
@@ -289,10 +298,15 @@ export class WorldMap {
         const d = fbm(x / 9, y / 9, S + 3);
         let o: number = O.NONE;
         const r = rng.next();
+        if (this.ridge[i] && gr !== G.SAND) {
+          if (r < 0.88) o = this.ridge[i] === 2 ? O.MOUNTAIN : b === 4 ? O.DEADTREE : r < 0.45 ? O.PINE : O.TREE;
+          this.obj[0][i] = o;
+          continue;
+        }
         if (gr === G.SAND) {
           if (r < 0.01) o = O.BOULDER;
         } else if (b === 1) {
-          if (d > 0.68) o = r < 0.3 ? O.TREE : r < 0.34 ? O.BUSH : O.NONE;
+          if (d > 0.62) o = r < 0.4 ? O.TREE : r < 0.46 ? O.BUSH : O.NONE;
           else if (r < 0.022) o = O.TREE;
           else if (r < 0.032) o = O.BUSH;
           else if (r < 0.06) o = O.FLOWERS;
@@ -377,6 +391,9 @@ export class WorldMap {
             case 'Z': set(G.TILE, O.STATUE); break;
             case 'r': set(G.TILE, O.BRAZIER); break;
             case 'M': set(G.DIRT, O.MOUNTAIN); break;
+            case 'G': set(G.COBBLE, O.GATE); break;
+            case 'p': set(G.WOOD, O.PLANT); break;
+            case '^': set(G.WOOD, O.STAIRS_UP); break;
             case 'D':
               set(G.COBBLE, O.STAIRS_DOWN);
               this.caveEntrances[t.id] = { x, y, z: 0 };
@@ -399,6 +416,32 @@ export class WorldMap {
         }
       }
     }
+    // Plantas altas y escaleras entre plantas
+    for (const t of TOWNS) {
+      if (!t.upper) continue;
+      t.upper.forEach((row, ry) => [...row].forEach((ch, rx) => {
+        if (ch === ' ') return;
+        const x = t.x + rx;
+        const y = t.y + ry;
+        const set = (gr: number, o: number = O.NONE) => {
+          this.setG(x, y, UPPER_Z, gr);
+          this.setO(x, y, UPPER_Z, o);
+          this.pz[UPPER_Z][y * this.W + x] = 1;
+        };
+        const objs: Record<string, number> = { W: O.WOODWALL, '#': O.WALL, b: O.BED, t: O.TABLE, h: O.CHAIR, x: O.CRATE, B: O.BOOKSHELF, o: O.BARREL, p: O.PLANT, v: O.STAIRS_DOWN, c: O.COUNTER };
+        if (ch !== '_' && !(ch in objs)) throw new Error(`Pueblo ${t.id}: carácter de planta alta desconocido '${ch}'`);
+        set(G.WOOD, objs[ch] ?? O.NONE);
+      }));
+    }
+    for (let y = 0; y < this.H; y++)
+      for (let x = 0; x < this.W; x++) {
+        if (this.o(x, y, 0) !== O.STAIRS_UP || this.o(x, y, UPPER_Z) !== O.STAIRS_DOWN) continue;
+        const up = this.freeNeighbor(x, y, UPPER_Z);
+        const down = this.freeNeighbor(x, y, 0);
+        if (!up || !down) throw new Error(`Escalera de casa sin sitio en ${x},${y}`);
+        this.links.set(this.key(x, y, 0), up);
+        this.links.set(this.key(x, y, UPPER_Z), down);
+      }
     // El suelo bajo los marcadores imita a sus vecinos
     for (const { x, y } of markerTiles) {
       const count = new Map<number, number>();
@@ -410,6 +453,18 @@ export class WorldMap {
       for (const [gr, c] of count) if (best < 0 || c > (count.get(best) ?? 0)) best = gr;
       if (best >= 0) this.setG(x, y, 0, best);
     }
+    // Tejados: suelos interiores (madera, baldosas) y los muros y puertas que los rodean
+    const interior = (x: number, y: number) => {
+      const gr = this.g(x, y, 0);
+      return (gr === G.WOOD || gr === G.TILE) && !!this.townAt(x, y, 0);
+    };
+    for (let y = 0; y < this.H; y++)
+      for (let x = 0; x < this.W; x++) {
+        if (!this.townAt(x, y, 0)) continue;
+        const o = this.o(x, y, 0);
+        const shell = o === O.WALL || o === O.WOODWALL || o === O.DOOR;
+        if (interior(x, y) || (shell && DIRS8.some(([dx, dy]) => interior(x + dx, y + dy)))) this.roof[y * this.W + x] = 1;
+      }
   }
 
   private inTownRect(x: number, y: number): boolean {
@@ -533,6 +588,7 @@ export class WorldMap {
           if (k >= 0) a = ids[k];
         }
         this.area[0][y * this.W + x] = a;
+        this.area[UPPER_Z][y * this.W + x] = a;
       }
   }
 
@@ -582,9 +638,9 @@ export class WorldMap {
         this.area[cave.z][k] = areaId;
       }
 
-      const open = cave.gen === 'ca' ? this.caGen(rng, rect, entry, carveable) : this.roomsGen(rng, rect, entry, carveable, cave.style === 'mine' ? 2 : 1);
+      const open = cave.gen === 'ca' ? this.caGen(rng, rect, entry, carveable) : this.roomsGen(rng, rect, entry, carveable, cave.style === 'mine' || cave.style === 'sewer' ? 2 : 1, cave.rooms ?? 14);
       // Aplica al mapa
-      const floor = cave.style === 'crypt' ? G.TILE : G.CAVE;
+      const floor = cave.style === 'crypt' ? G.TILE : cave.style === 'sewer' ? G.COBBLE : G.CAVE;
       for (const i of open) {
         this.ground[cave.z][i] = floor;
         this.obj[cave.z][i] = O.NONE;
@@ -628,7 +684,7 @@ export class WorldMap {
         const b = farthest((i) => roomy(i) && this.obj[cave.z][i] === O.NONE);
         const x = b % this.W;
         const y = (b - x) / this.W;
-        this.spawns.push({ monster: cave.boss, z: cave.z, tiles: [b], x, y, radius: 4, respawn: 15 * 60_000 });
+        this.spawns.push({ monster: cave.boss, z: cave.z, tiles: [b], x, y, radius: 4, respawn: 20 * 60_000 });
       }
       const candidates = reach.filter((i) => dist[i] >= 6 && this.obj[cave.z][i] === O.NONE);
       for (const [monster, count] of cave.spawns) {
@@ -643,7 +699,7 @@ export class WorldMap {
             const iy = (i - ix) / this.W;
             return Math.abs(ix - x) <= 3 && Math.abs(iy - y) <= 3;
           });
-          this.spawns.push({ monster, z: cave.z, tiles, x, y, radius: 6, respawn: 60_000 });
+          this.spawns.push({ monster, z: cave.z, tiles, x, y, radius: 6, respawn: 240_000 });
         }
       }
     });
@@ -722,13 +778,13 @@ export class WorldMap {
     return this.component(open, e);
   }
 
-  private roomsGen(rng: Rng, rect: { x: number; y: number; w: number; h: number }, e: Pos, carveable: (x: number, y: number) => boolean, corridor: number): number[] {
+  private roomsGen(rng: Rng, rect: { x: number; y: number; w: number; h: number }, e: Pos, carveable: (x: number, y: number) => boolean, corridor: number, maxRooms: number): number[] {
     const W = this.W;
     const open = new Uint8Array(W * this.H);
     const rooms: { x: number; y: number; w: number; h: number }[] = [{ x: e.x - 2, y: e.y - 2, w: 5, h: 5 }];
-    for (let a = 0; a < 300 && rooms.length < 14; a++) {
-      const w = rng.int(5, 10);
-      const h = rng.int(4, 8);
+    for (let a = 0; a < 800 && rooms.length < maxRooms; a++) {
+      const w = rng.int(5, 9);
+      const h = rng.int(4, 7);
       const x = rng.int(rect.x + 1, rect.x + rect.w - w - 1);
       const y = rng.int(rect.y + 1, rect.y + rect.h - h - 1);
       if (rooms.some((r) => x < r.x + r.w + 2 && x + w + 2 > r.x && y < r.y + r.h + 2 && y + h + 2 > r.y)) continue;
@@ -852,6 +908,14 @@ export class WorldMap {
           else if (r < 0.06) set(O.CRYSTAL);
           else if (r < 0.08) set(O.BONES);
           break;
+        case 'sewer':
+          if (n > 0.68 && solidAround(x, y)) this.ground[z][i] = G.WATER;
+          else if (n < 0.3) this.ground[z][i] = G.MUD;
+          else if (wallNear(x, y) && r < 0.05) set(rng.chance(0.5) ? O.BARREL : O.CRATE);
+          else if (r < 0.1) set(O.RUBBLE);
+          else if (r < 0.13) set(O.BONES);
+          else if (r < 0.15) set(O.WEB);
+          break;
         case 'flooded':
           if (n > 0.64 && solidAround(x, y)) this.ground[z][i] = G.WATER;
           else if (n < 0.4) this.ground[z][i] = G.MUD;
@@ -868,10 +932,9 @@ export class WorldMap {
   /** Abre paso hasta los sitios importantes que hayan quedado aislados. */
   private ensureConnected() {
     const valco = this.temples['valcorona'];
-    const albor = this.temples['albor'];
     const points: Pos[] = [];
     for (const t of TOWNS) if (this.temples[t.id]) points.push(this.temples[t.id]);
-    for (const [, dst] of this.links) if (dst.z === 0) points.push(dst);
+    for (const [k, dst] of this.links) if (dst.z === 0 && this.unkey(k).z !== UPPER_Z) points.push(dst);
     for (const [, x, y] of SURFACE_SPAWNS) points.push({ x, y, z: 0 });
     const cost = (x: number, y: number) => {
       const gr = this.g(x, y, 0);
@@ -882,15 +945,11 @@ export class WorldMap {
       return 3;
     };
     for (let pass = 0; pass < 2; pass++) {
-      const dMain = this.bfs(valco.x, valco.y, 0);
-      const dIsl = this.bfs(albor.x, albor.y, 0);
+      const d = this.bfs(valco.x, valco.y, 0);
       for (const p of points) {
-        const island = p.x < 62 && p.y > 100;
-        const d = island ? dIsl : dMain;
         if (d[p.y * this.W + p.x] >= 0) continue;
         if (!GROUNDS[this.g(p.x, p.y, 0)].walk) continue; // zona de criaturas en el agua: se avisa luego
-        const home = island ? albor : valco;
-        const path = this.carvePath(p.x, p.y, home.x, home.y, cost);
+        const path = this.carvePath(p.x, p.y, valco.x, valco.y, cost);
         if (!path) {
           this.warnings.push(`No se pudo conectar ${p.x},${p.y}`);
           continue;
@@ -918,7 +977,7 @@ export class WorldMap {
         this.warnings.push(`Zona de ${monster} en ${cx},${cy} sin casillas libres`);
         continue;
       }
-      for (let k = 0; k < count; k++) this.spawns.push({ monster, z: 0, tiles, x: cx, y: cy, radius: radius + 4, respawn: 45_000 });
+      for (let k = 0; k < count; k++) this.spawns.push({ monster, z: 0, tiles, x: cx, y: cy, radius: radius + 4, respawn: 180_000 });
     }
   }
 }

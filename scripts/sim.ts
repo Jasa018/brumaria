@@ -7,6 +7,8 @@ import { QUESTS } from '../src/data/quests';
 import { ITEMS } from '../src/data/items';
 import { SPELLS } from '../src/data/spells';
 import { Game, cheb, expForLevel, newPlayerData } from '../src/game/game';
+import { O } from '../src/data/tiles';
+import { UPPER_Z } from '../src/data/world';
 import { generateWorld } from '../src/game/world';
 import type { Creature } from '../src/game/types';
 import type { VocId } from '../src/data/vocations';
@@ -25,7 +27,7 @@ const map = generateWorld();
 ok(`generado en ${Date.now() - t0} ms: ${map.spawns.length} criaturas, ${map.npcs.length} NPC, ${map.links.size / 2} escaleras`);
 for (const w of map.warnings) fail(w);
 for (const t of TOWNS) {
-  if (!map.temples[t.id] && t.id !== 'sauce') fail(`${t.name} no tiene templo (@)`);
+  if (!map.temples[t.id]) fail(`${t.name} no tiene templo (@)`);
   const widths = new Set(t.map.map((r) => r.length));
   if (widths.size > 1) fail(`${t.name}: filas de distinto ancho ${[...widths]}`);
 }
@@ -33,15 +35,14 @@ for (const t of TOWNS) {
 // Conectividad: desde el templo de cada masa de tierra
 const reach = (from: { x: number; y: number; z: number }) => map.bfs(from.x, from.y, from.z);
 const valco = reach(map.temples['valcorona']);
-const albor = reach(map.temples['albor']);
 const reachable = (x: number, y: number, z: number) => {
   if (z !== 0) return true;
   const i = y * map.W + x;
-  if (valco[i] >= 0 || albor[i] >= 0) return true;
+  if (valco[i] >= 0) return true;
   // Un NPC se considera alcanzable si se puede llegar a una casilla vecina
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     const j = (y + dy) * map.W + x + dx;
-    if (valco[j] >= 0 || albor[j] >= 0) return true;
+    if (valco[j] >= 0) return true;
   }
   return false;
 };
@@ -66,7 +67,7 @@ for (const [k, dst] of map.links) {
     stairsBad++;
     fail(`Escalera ${src.x},${src.y},${src.z} lleva a casilla bloqueada`);
   }
-  if (src.z === 0 && !reachable(src.x, src.y, 0)) {
+  if ((src.z === 0 || src.z === UPPER_Z) && !reachable(src.x, src.y, 0)) {
     stairsBad++;
     fail(`Entrada de cueva en ${src.x},${src.y} inalcanzable`);
   }
@@ -93,7 +94,7 @@ for (const cave of CAVES) {
 }
 let surfaceBad = 0;
 for (const s of map.spawns.filter((sp) => sp.z === 0)) {
-  if (!s.tiles.some((t) => valco[t] >= 0 || albor[t] >= 0)) surfaceBad++;
+  if (!s.tiles.some((t) => valco[t] >= 0)) surfaceBad++;
 }
 if (surfaceBad) fail(`${surfaceBad} criaturas de superficie en zonas inalcanzables`);
 else ok('todas las zonas de superficie son alcanzables');
@@ -150,8 +151,8 @@ if (!line.includes('nivel 6')) fail('El Oráculo debería pedir nivel 6: ' + lin
 p.level = 6;
 p.exp = expForLevel(6);
 talk('oraculo', 'quiero ser brujo', 'si');
-if (p.voc === 'brujo' && map.areaName(p.x, p.y, p.z) === 'Valcorona') ok('vocación elegida y enviado a Valcorona');
-else fail(`Vocación: ${p.voc}, zona ${map.areaName(p.x, p.y, p.z)}`);
+if (p.voc === 'brujo') ok('vocación elegida con el Oráculo');
+else fail(`Vocación: ${p.voc}`);
 p.gold = 5000;
 line = talk('selene', 'hechizos');
 if (!line.includes('Dardo de fuego')) fail('Selene no ofrece Dardo de fuego: ' + line);
@@ -175,6 +176,61 @@ const game2 = new Game(map, JSON.parse(JSON.stringify(saved)));
 if (game2.player.level === p.level && game2.player.spells.includes('dardo_fuego') && game2.isExplored(p.x, p.y, p.z)) ok('guardar y cargar conserva el progreso y el mapa explorado');
 else fail('Guardar/cargar pierde datos');
 
+// ---------------------------------------------------------------- Albor: portón, puertas y plantas
+console.log('Albor');
+{
+  const g = new Game(map, newPlayerData('Portón', look, map));
+  const pl = g.player;
+  let gx = -1;
+  let gy = -1;
+  for (let y = 0; y < map.H && gx < 0; y++) for (let x = 0; x < map.W; x++) if (map.o(x, y, 0) === O.GATE) { gx = x; gy = y; break; }
+  if (gx < 0) fail('Albor no tiene portón');
+  else {
+    g.teleport(pl, gx - 1, gy, 0);
+    g.update(1000);
+    g.walk(1, 0);
+    const blocked = pl.x === gx - 1;
+    g.events.length = 0;
+    g.update(5000);
+    const guardSpoke = [...g.creatures.values()].some((c) => c.npc?.id === 'guardia_albor' && c.speech);
+    if (blocked && guardSpoke) ok('el portón no deja salir sin permiso y el guardia lo dice');
+    else fail(`portón: bloqueado=${blocked}, guardia habló=${guardSpoke}`);
+    pl.quests['ductos'] = { state: 'done', count: 0 };
+    g.update(1000);
+    g.walk(1, 0);
+    if (pl.x === gx) ok('con la misión de los Ductos completada, el portón deja pasar');
+    else fail('el portón sigue cerrado tras la misión');
+  }
+  // Desde el templo se llega a pie hasta fuera (con el portón abierto) y hasta la entrada de los Ductos
+  const t = map.temples['albor'];
+  const d = map.bfs(t.x, t.y, 0);
+  const ductos = map.caveEntrances['albor'];
+  if (d[ductos.y * map.W + ductos.x] >= 0) ok('la rejilla de los Ductos es alcanzable desde el templo');
+  else fail('la rejilla de los Ductos no es alcanzable');
+  // Puertas
+  let door: { x: number; y: number } | null = null;
+  for (let y = 0; y < map.H && !door; y++) for (let x = 0; x < map.W; x++) if (map.o(x, y, 0) === O.DOOR && map.townAt(x, y, 0)?.id === 'albor') { door = { x, y }; break; }
+  if (!door) fail('no hay puertas en Albor');
+  else {
+    const spot = g.findFreeNear(door.x, door.y, 0, 1)!;
+    g.teleport(pl, spot.x, spot.y, 0);
+    const opened = g.toggleDoor(door.x, door.y) && map.o(door.x, door.y, 0) === O.DOOR_OPEN;
+    const closed = g.toggleDoor(door.x, door.y) && map.o(door.x, door.y, 0) === O.DOOR;
+    const monsterBlocked = !g.free(door.x, door.y, 0, 'monster');
+    if (opened && closed && monsterBlocked) ok('las puertas se abren y cierran, y cerradas bloquean a las criaturas');
+    else fail(`puertas: abrir=${opened} cerrar=${closed} bloquea=${monsterBlocked}`);
+  }
+  // Casas con planta alta
+  let houses = 0;
+  for (const [k, dst] of map.links) if (map.unkey(k).z === 0 && dst.z === UPPER_Z) houses++;
+  if (houses >= 8) ok(`${houses} casas con segunda planta`);
+  else fail(`solo ${houses} casas con segunda planta`);
+  let roofs = 0;
+  for (let i = 0; i < map.roof.length; i++) roofs += map.roof[i];
+  if (roofs > 300) ok(`${roofs} casillas con tejado`);
+  else fail(`pocos tejados: ${roofs}`);
+}
+
 // ---------------------------------------------------------------- Combate
 console.log('Combate (piloto automático, 10 minutos de juego por prueba)');
 interface Trial {
@@ -187,8 +243,10 @@ interface Trial {
   minutes?: number;
 }
 const trials: Trial[] = [
-  { label: 'Aprendiz nv1 en la isla (ratas/serpientes)', voc: 'aprendiz', level: 1, equip: { weapon: 'garrote', body: 'jubon' }, spells: ['sanar_menor'], where: 'rata' },
-  { label: 'Aprendiz nv3 en la Cueva de las Ratas', voc: 'aprendiz', level: 3, equip: { weapon: 'espada_corta', shield: 'escudo_madera', body: 'jubon', head: 'casco_hierro' }, spells: ['sanar_menor'], where: 'arana_cueva' },
+  { label: 'Aprendiz nv1 en los Ductos (ratas)', voc: 'aprendiz', level: 1, equip: { weapon: 'garrote', body: 'jubon' }, spells: ['sanar_menor'], where: 'rata' },
+  { label: 'Aprendiz nv3 en los Ductos (cucarachas)', voc: 'aprendiz', level: 3, equip: { weapon: 'garrote', body: 'jubon' }, spells: ['sanar_menor'], where: 'cucaracha' },
+  { label: 'Aprendiz nv5 contra el Rey de las Ratas', voc: 'aprendiz', level: 5, equip: { weapon: 'espada_corta', shield: 'escudo_madera', body: 'jubon', head: 'casco_hierro' }, spells: ['sanar_menor'], where: 'rey_rata', minutes: 5 },
+  { label: 'Aprendiz nv4 con arañas de cueva', voc: 'aprendiz', level: 4, equip: { weapon: 'espada_corta', shield: 'escudo_madera', body: 'jubon', head: 'casco_hierro' }, spells: ['sanar_menor'], where: 'arana_cueva' },
   { label: 'Guerrero nv8 contra trasgos', voc: 'guerrero', level: 8, equip: { weapon: 'espada_corta', shield: 'escudo_madera', body: 'jubon', head: 'casco_hierro', legs: 'calzas' }, spells: ['sanar_menor', 'golpe_brutal'], where: 'trasgo' },
   { label: 'Arquero nv12 contra bandidos', voc: 'arquero', level: 12, equip: { weapon: 'arco', body: 'cota_malla', head: 'casco_hierro', legs: 'grebas' }, spells: ['sanar_menor', 'flecha_certera'], where: 'bandido' },
   { label: 'Brujo nv15 en la cripta (esqueletos)', voc: 'brujo', level: 15, equip: { weapon: 'varita_brasa', body: 'tunica_mago', head: 'capucha_mago' }, spells: ['sanar_menor', 'sanar_mayor', 'dardo_fuego'], where: 'esqueleto' },
@@ -215,7 +273,7 @@ function runTrial(t: Trial) {
   for (const k of Object.keys(data.skills) as (keyof typeof data.skills)[]) data.skills[k].lvl = Math.round(data.skills[k].lvl);
   const target = map.spawns.find((s) => s.monster === t.where)!;
   // Para los jefes, empieza junto a otra criatura de la misma cueva (los jefes no nacen a la vista)
-  const spawn = MONSTERS[t.where].boss ? map.spawns.find((s) => s.z === target.z && s !== target && map.areaName(s.x, s.y, s.z) === map.areaName(target.x, target.y, target.z))! : target;
+  const spawn = MONSTERS[t.where].boss ? map.spawns.find((s) => s.z === target.z && s !== target && cheb(s, target) > 15 && map.areaName(s.x, s.y, s.z) === map.areaName(target.x, target.y, target.z))! : target;
   const tile = spawn.tiles[0];
   data.pos = { x: tile % map.W, y: Math.floor(tile / map.W), z: spawn.z };
   data.food = 1200;
@@ -280,7 +338,7 @@ function runTrial(t: Trial) {
   }
   const expH = Math.round(((pl.exp - startExp) / ms) * 3_600_000);
   const verdict = deaths === 0 ? '' : deaths <= 2 ? '  (peligroso)' : '  (DEMASIADO DIFÍCIL)';
-  console.log(`  • ${t.label}: ${kills} bajas, ${deaths} muertes, ${expH.toLocaleString('es')} exp/h${t.where === 'nigromante' || t.where === 'ignaroth' ? (bossKilled ? ', JEFE DERROTADO' : ', jefe vivo') : ''}${verdict}`);
+  console.log(`  • ${t.label}: ${kills} bajas, ${deaths} muertes, ${expH.toLocaleString('es')} exp/h${MONSTERS[t.where].boss ? (bossKilled ? ', JEFE DERROTADO' : ', jefe vivo') : ''}${verdict}`);
   return { kills, deaths };
 }
 for (const t of trials) runTrial(t);

@@ -104,7 +104,6 @@ export function hear(game: Game, npc: Creature, text: string) {
       return text.includes(norm(t.name)) || text.includes(norm(t.name.split(' ').pop()!));
     });
     if (dest) {
-      if (def.id === 'odo' && p.voc === 'aprendiz') return say('Solo llevo al continente a quienes ya tienen una {vocación}. Habla con el Oráculo.');
       const t = TOWNS.find((tw) => tw.id === dest.town)!;
       npc.pending = { kind: 'travel', town: dest.town, price: dest.price };
       return say(dest.price ? `¿Quieres viajar a ${t.name} por ${dest.price} de oro?` : `¿Quieres viajar a ${t.name}?`);
@@ -134,7 +133,7 @@ function questTalk(game: Game, npc: Creature) {
     const st = p.quests[q.id];
     if (q.objective.type !== 'deliver' || q.objective.to !== def.id || st?.state !== 'active') continue;
     if (!game.removeItem(q.objective.item, 1)) return say(`Dicen que traes algo para mí, pero no veo ninguna ${item(q.objective.item).name}.`);
-    say(`¿Una carta de Teodoro? Veamos... Malas noticias del continente. Gracias por traerla. Toma tu recompensa, y si buscas más trabajo, pídeme otra {misión}.`);
+    say(`¿Una carta de Teodoro? Veamos... Malas noticias de los caminos. Gracias por traerla. Toma tu recompensa, y si buscas más trabajo, pídeme otra {misión}.`);
     game.completeQuest(q.id);
     return;
   }

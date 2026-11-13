@@ -119,7 +119,7 @@ export type GameEvent =
   | { t: 'ending' }
   | { t: 'inv' };
 
-export type SoundName = 'hit' | 'miss' | 'hurt' | 'kill' | 'level' | 'spell' | 'heal' | 'coin' | 'step' | 'death' | 'quest' | 'eat' | 'stairs' | 'bow';
+export type SoundName = 'hit' | 'miss' | 'hurt' | 'kill' | 'level' | 'spell' | 'heal' | 'coin' | 'step' | 'death' | 'quest' | 'eat' | 'stairs' | 'bow' | 'door';
 
 export const ELEMENT_FX: Record<Element, FxKind> = {
   physical: 'hit', fire: 'fire', ice: 'ice', earth: 'earth', energy: 'energy', holy: 'holy', death: 'death',

@@ -168,7 +168,7 @@ export function openQuests(game: Game) {
   const p = game.player;
   const active = QUESTS.filter((q) => p.quests[q.id]?.state === 'active');
   const done = QUESTS.filter((q) => p.quests[q.id]?.state === 'done');
-  if (!active.length && !done.length) w.body.append(el('div', { cls: 'muted', innerHTML: 'Aún no tienes misiones. Habla con la gente de los pueblos y pregunta por una <b>misión</b>.<br><br>Pista: el Anciano Teodoro, en Albor, necesita ayuda.' }));
+  if (!active.length && !done.length) w.body.append(el('div', { cls: 'muted', innerHTML: 'Aún no tienes misiones. Habla con la gente de los pueblos y pregunta por una <b>misión</b>.<br><br>Pista: el capitán Rurik, en el cuartel junto al portón de Albor, decide quién sale de la ciudad.' }));
   for (const q of active) {
     const st = p.quests[q.id];
     let progress = '';
@@ -214,7 +214,7 @@ export function openMap(game: Game) {
   const tabs = el('div', { cls: 'tabs' });
   const render = () => {
     tabs.innerHTML = '';
-    ['Superficie', 'Subsuelo 1', 'Subsuelo 2'].forEach((label, i) => {
+    ['Superficie', 'Subsuelo 1', 'Subsuelo 2', 'Planta alta'].forEach((label, i) => {
       const b = el('button', { textContent: label, cls: i === z ? 'on' : '' });
       b.onclick = () => {
         z = i;
@@ -241,7 +241,8 @@ export function openHelp() {
     <p><b class="gold">Botín:</b> clic en un cadáver junto a ti, o <kbd>F</kbd> para cogerlo todo de los cadáveres de alrededor. Clic derecho en cualquier casilla para mirarla.</p>
     <p><b class="gold">Ventanas:</b> <kbd>K</kbd> personaje · <kbd>J</kbd> misiones · <kbd>L</kbd> hechizos · <kbd>M</kbd> mapa · <kbd>H</kbd> ayuda.</p>
     <p><b class="gold">Supervivencia:</b> sin comida no recuperas vida ni maná. Las cuevas son oscuras: usa antorchas o el hechizo <i>lumen</i>. Los pueblos son zonas protegidas. Si mueres, despiertas en el templo de tu hogar y pierdes algo de experiencia.</p>
-    <p><b class="gold">Progreso:</b> empieza en la isla de Albor. Al nivel 6 elige tu vocación con el Oráculo y viaja a la capital, Valcorona. La partida se guarda sola.</p>`;
+    <p><b class="gold">Puertas:</b> clic en una puerta a tu lado para abrirla o cerrarla. Si caminas hacia una puerta cerrada, la abres. Las criaturas no saben abrir puertas.</p>
+    <p><b class="gold">Progreso:</b> empiezas dentro de la ciudad amurallada de Albor. Para salir, el capitán Rurik te pedirá limpiar los Ductos que hay bajo la ciudad (la entrada es la rejilla de la plaza). Al nivel 6 elige tu vocación con el Oráculo. La partida se guarda sola.</p>`;
 }
 
 // ------------------------------------------------------------------ Pantallas completas
@@ -319,7 +320,7 @@ export function titleScreen(hasSave: boolean, saveInfo: string): Promise<{ actio
         if (e.key === 'Enter') start();
       };
       const col = el('div', { cls: 'col' }, name, el('div', { cls: 'muted', textContent: 'Elige tu aspecto:' }), outfits, go, back);
-      box.append(col, el('p', { cls: 'muted', innerHTML: 'Despiertas en la isla de Albor, donde empiezan todos los aventureros.<br>El Anciano Teodoro y el Oráculo te esperan en el pueblo.' }));
+      box.append(col, el('p', { cls: 'muted', innerHTML: 'Despiertas en Albor, una ciudad amurallada donde empiezan todos los aventureros.<br>Para salir tendrás que ganarte el permiso del capitán de la guardia.' }));
       setTimeout(() => name.focus(), 50);
     };
     main();

@@ -1,9 +1,13 @@
+import { buildAlbor } from './albor';
+
 // Geografía de Brumaria: tamaño del mundo, pueblos, cuevas y zonas de criaturas.
 // El terreno se genera con una semilla fija, así que el mundo es siempre el mismo.
 
-export const WORLD_W = 240;
-export const WORLD_H = 170;
-export const WORLD_Z = 3; // 0 = superficie, 1 y 2 = subterráneo
+export const WORLD_W = 260;
+export const WORLD_H = 180;
+export const WORLD_Z = 4; // 0 = superficie, 1 y 2 = subterráneo, 3 = plantas altas de las casas
+export const UPPER_Z = 3;
+export const isUnderground = (z: number) => z === 1 || z === 2;
 export const WORLD_SEED = 20261113;
 
 /*
@@ -16,6 +20,7 @@ Leyenda de las plantillas:
   'N' yunque        'K' horno         'L' farol         '*' flores        'S' cartel
   'w' pozo          'D' escalera baja 'h' silla         'P' poste muelle  'Z' estatua
   'r' brasero       'M' montaña       '@' punto de reaparición del templo
+  '^' escalera a la planta alta  'v' escalera a la planta baja  'G' portón  'p' maceta
   '0'-'9' NPC (ver `npcs` de cada pueblo)
 */
 
@@ -25,51 +30,19 @@ export interface TownDef {
   x: number;
   y: number;
   map: string[];
+  /** Planta alta (mismo tamaño que map; ' ' = sin suelo). */
+  upper?: string[];
   npcs: Record<string, string>;
 }
 
+const ALBOR = buildAlbor();
+
 export const TOWNS: TownDef[] = [
   {
-    id: 'albor', name: 'Albor', x: 18, y: 121,
-    npcs: { '1': 'oraculo', '3': 'hermana_lia', '2': 'mirta', '4': 'teodoro', '5': 'brann', '6': 'odo' },
-    map: [
-      '..T.............==..........T...sss~~~~~',
-      '..#########.....==...WWWWWWWW...sss~~~~~',
-      '..#:::::::#.....==...W______W...sss~~~~~',
-      '..#:r:A:r:#..*..==...W_cccc_W...sss~~~~~',
-      '..#:::1:::#.....==...W__2___W...sss~~~~~',
-      '..#:::::::#.....==...W_o__xxW...sss~~~~~',
-      '..#:3:@:::#..*..==...W______W....ss~~~~~',
-      '..####+####.....==...WWW+WWWW....ssP~~~~',
-      '.L,,,,,,,,,,,,,,==,,,,,,,,,,,,L..ssHHH6~',
-      '========================================',
-      '.L,,,,,,,,,,,,F,==,,,,,,,,,,,,L..ssHHHH~',
-      '..WWWW+WWWW.....==...WWWW+WWW....ssP~~~~',
-      '..W_______W.....==...W_______W...sss~~~~',
-      '..W_b___4_W.....==...W_N__5__W...sss~~~~',
-      '..W_b_____W..*..==...W_K_____W...sss~~~~',
-      '..W____t__W.....==...W_______W...sss~~~~',
-      '..WWWWWWWWW.....==...WWWWWWWWW...sss~~~~',
-      '..*....T........==.........T.....ss~~~~~',
-    ],
-  },
-  {
-    id: 'sauce', name: 'Puerto Sauce', x: 64, y: 112,
-    npcs: { '1': 'marela', '2': 'ismael' },
-    map: [
-      '~~~sss........T...',
-      '~~~sss..WWW+WWW...',
-      '~~~sss..W_____W...',
-      '~~~sss..W_2_o_W...',
-      '~~~sss..WWWWWWW...',
-      '~~~sss..L.........',
-      '~PHHHHHs==========',
-      '~1HHHHHs==========',
-      '~PHHHHHs.....L....',
-      '~~~sss............',
-      '~~~ssss.....T.....',
-      '~~~~sss...........',
-    ],
+    id: 'albor', name: 'Albor', x: 30, y: 100,
+    npcs: { '1': 'oraculo', '2': 'mirta', '3': 'hermana_lia', '4': 'teodoro', '5': 'brann', '6': 'capitan_rurik', '7': 'guardia_albor', '9': 'lena' },
+    map: ALBOR.map,
+    upper: ALBOR.upper,
   },
   {
     id: 'valcorona', name: 'Valcorona', x: 112, y: 64,
@@ -148,10 +121,10 @@ export const TOWNS: TownDef[] = [
       '~~mW_c_B__WmmmmW__@___Wm~~',
       '~~mW______WmmmmW______Wm~~',
       '~~mWWWW+WWWmmmmWWWW+WWWm~~',
-      'mm______________________mm',
-      'HH__L________4_____L____mm',
-      'HH______________________mm',
-      'mm______________________mm',
+      'mmHHHHHHHHHHHHHHHHHHHHHHmm',
+      'HHHHLHHHHHHHH4HHHHHLHHHHmm',
+      'HHHHHHHHHHHHHHHHHHHHHHHHmm',
+      'mmHHHHHHHHHHHHHHHHHHHHHHmm',
       '~~mWWW+WWWWmmmmWWWW+WWWm~~',
       '~~mW______WmmmmW______Wm~~',
       '~~mW_2____WmmmmW_t__h_Wm~~',
@@ -165,11 +138,11 @@ export const TOWNS: TownDef[] = [
 
 /** Caminos entre puertas de pueblos (coordenadas absolutas). */
 export const ROADS: [number, number, number, number][] = [
-  // Albor: hacia la cueva del norte y la playa sur
-  [34, 121, 34, 114],
-  [34, 138, 34, 146],
-  // Puerto Sauce -> Valcorona (puerta oeste)
-  [82, 118, 112, 80],
+  // Albor (portón este) -> Valcorona (puerta oeste)
+  [92, 123, 112, 80],
+  // Albor -> Cueva de las Ratas (norte) y Mina Abandonada (sur)
+  [92, 124, 62, 93],
+  [92, 124, 110, 139],
   // Valcorona -> Hondaforja (puerta norte -> puerta sur)
   [135, 64, 193, 39],
   // Valcorona -> Juncal (puerta este -> entrada oeste)
@@ -178,7 +151,7 @@ export const ROADS: [number, number, number, number][] = [
   [135, 97, 140, 138],
 ];
 
-export type CaveStyle = 'cave' | 'crypt' | 'mine' | 'lava' | 'flooded';
+export type CaveStyle = 'cave' | 'crypt' | 'mine' | 'lava' | 'flooded' | 'sewer';
 
 export interface CaveDef {
   id: string;
@@ -194,97 +167,108 @@ export interface CaveDef {
   rect: { x: number; y: number; w: number; h: number };
   spawns: [monster: string, count: number][];
   boss?: string;
+  /** Número de salas (generador por salas). */
+  rooms?: number;
 }
 
 export const CAVES: CaveDef[] = [
   {
+    id: 'ductos', name: 'Los Ductos', z: 1, style: 'sewer', gen: 'rooms', rooms: 22,
+    entrance: { town: 'albor' }, rect: { x: 24, y: 96, w: 72, h: 48 },
+    spawns: [['rata', 7], ['cucaracha', 5], ['rata_gigante', 4]], boss: 'rey_rata',
+  },
+  {
     id: 'cueva_ratas', name: 'Cueva de las Ratas', z: 1, style: 'cave', gen: 'ca',
-    entrance: { x: 34, y: 113 }, rect: { x: 12, y: 96, w: 38, h: 24 },
-    spawns: [['rata', 10], ['murcielago', 3], ['arana_cueva', 3]],
+    entrance: { x: 60, y: 90 }, rect: { x: 30, y: 66, w: 46, h: 27 },
+    spawns: [['rata', 5], ['murcielago', 2], ['arana_cueva', 3]],
   },
   {
-    id: 'cripta', name: 'Cripta de Valcorona', z: 1, style: 'crypt', gen: 'rooms',
+    id: 'mina_vieja', name: 'Mina Abandonada', z: 1, style: 'mine', gen: 'rooms', rooms: 18,
+    entrance: { x: 110, y: 141 }, rect: { x: 98, y: 124, w: 52, h: 34 },
+    spawns: [['arana_cueva', 4], ['murcielago', 2], ['trasgo', 3], ['serpiente', 2]],
+  },
+  {
+    id: 'cripta', name: 'Cripta de Valcorona', z: 1, style: 'crypt', gen: 'rooms', rooms: 20,
     entrance: { town: 'valcorona' }, rect: { x: 126, y: 50, w: 48, h: 34 },
-    spawns: [['esqueleto', 12], ['necrofago', 5]],
+    spawns: [['esqueleto', 7], ['necrofago', 3]],
   },
   {
-    id: 'catacumbas', name: 'Catacumbas Profundas', z: 2, style: 'crypt', gen: 'rooms',
-    from: 'cripta', rect: { x: 0, y: 0, w: 44, h: 32 },
-    spawns: [['espectro', 6], ['necrofago', 5], ['esqueleto', 6]], boss: 'nigromante',
+    id: 'catacumbas', name: 'Catacumbas Profundas', z: 2, style: 'crypt', gen: 'rooms', rooms: 18,
+    from: 'cripta', rect: { x: 0, y: 0, w: 46, h: 34 },
+    spawns: [['espectro', 4], ['necrofago', 3], ['esqueleto', 4]], boss: 'nigromante',
   },
   {
     id: 'madriguera', name: 'Madriguera Trasga', z: 1, style: 'cave', gen: 'ca',
     entrance: { x: 100, y: 42 }, rect: { x: 78, y: 26, w: 44, h: 30 },
-    spawns: [['trasgo', 10], ['trasgo_arquero', 6], ['trasgo_chaman', 4]],
+    spawns: [['trasgo', 6], ['trasgo_arquero', 4], ['trasgo_chaman', 2]],
   },
   {
     id: 'cueva_troll', name: 'Cueva de los Trolls', z: 1, style: 'cave', gen: 'ca',
     entrance: { x: 166, y: 40 }, rect: { x: 152, y: 26, w: 24, h: 22 },
-    spawns: [['troll', 8], ['murcielago', 3]],
+    spawns: [['troll', 5], ['murcielago', 2]],
   },
   {
-    id: 'minas', name: 'Minas de Hondaforja', z: 1, style: 'mine', gen: 'rooms',
-    entrance: { town: 'hondaforja' }, rect: { x: 178, y: 8, w: 56, h: 32 },
-    spawns: [['golem', 9], ['arana_gigante', 6], ['troll', 4], ['murcielago', 3]],
+    id: 'minas', name: 'Minas de Hondaforja', z: 1, style: 'mine', gen: 'rooms', rooms: 22,
+    entrance: { town: 'hondaforja' }, rect: { x: 178, y: 8, w: 60, h: 32 },
+    spawns: [['golem', 6], ['arana_gigante', 4], ['troll', 3], ['murcielago', 2]],
   },
   {
     id: 'fauces', name: 'Fauces de Ceniza', z: 2, style: 'lava', gen: 'ca',
     from: 'minas', rect: { x: 0, y: 0, w: 52, h: 38 },
-    spawns: [['salamandra', 9], ['draco', 5]], boss: 'ignaroth',
+    spawns: [['salamandra', 6], ['draco', 3]], boss: 'ignaroth',
   },
   {
     id: 'gruta', name: 'Gruta Inundada', z: 1, style: 'flooded', gen: 'ca',
     entrance: { x: 206, y: 138 }, rect: { x: 184, y: 126, w: 46, h: 32 },
-    spawns: [['lagarto', 8], ['lagarto_sabio', 4], ['sapo', 4]],
+    spawns: [['lagarto', 5], ['lagarto_sabio', 3], ['sapo', 3]],
   },
 ];
 
 /** Zonas de criaturas en la superficie: [criatura, x, y, radio, cantidad]. */
 export const SURFACE_SPAWNS: [string, number, number, number, number][] = [
-  // Isla de Albor
-  ['rata', 40, 145, 5, 4],
-  ['rata', 16, 143, 4, 3],
-  ['serpiente', 48, 141, 5, 4],
-  ['serpiente', 24, 147, 4, 3],
-  ['lobo', 44, 115, 6, 3],
-  ['ciervo', 18, 116, 6, 2],
-  ['jabali', 10, 124, 4, 2],
+  // Campos de Albor (fuera de la muralla)
+  ['rata', 45, 150, 6, 2],
+  ['serpiente', 80, 150, 6, 2],
+  ['lobo', 52, 88, 7, 2],
+  ['ciervo', 102, 132, 7, 2],
+  ['jabali', 22, 124, 5, 2],
+  ['rata', 102, 104, 5, 2],
   // Llanuras de Valcorona
-  ['lobo', 100, 102, 8, 4],
-  ['ciervo', 112, 110, 8, 3],
-  ['jabali', 92, 90, 7, 3],
-  ['lobo', 168, 94, 8, 4],
-  ['ciervo', 150, 122, 8, 3],
-  ['jabali', 122, 126, 8, 3],
-  ['bandido', 140, 142, 6, 6],
-  ['bandido', 84, 98, 5, 3],
+  ['lobo', 100, 102, 8, 2],
+  ['ciervo', 112, 110, 8, 2],
+  ['jabali', 92, 90, 7, 2],
+  ['lobo', 168, 94, 8, 2],
+  ['ciervo', 150, 122, 8, 2],
+  ['jabali', 122, 126, 8, 2],
+  ['bandido', 140, 142, 6, 4],
+  ['bandido', 84, 98, 5, 2],
   // Bosque Umbrío
-  ['trasgo', 86, 56, 7, 5],
-  ['trasgo_arquero', 86, 56, 7, 2],
-  ['trasgo', 122, 42, 7, 5],
-  ['trasgo_arquero', 122, 42, 6, 3],
+  ['trasgo', 86, 56, 7, 3],
+  ['trasgo_arquero', 86, 56, 7, 1],
+  ['trasgo', 122, 42, 7, 3],
+  ['trasgo_arquero', 122, 42, 6, 2],
   ['trasgo_chaman', 122, 42, 5, 1],
-  ['oso', 72, 76, 8, 3],
-  ['oso', 142, 30, 8, 3],
-  ['lobo', 106, 30, 8, 4],
-  ['arpia', 158, 52, 6, 3],
+  ['oso', 72, 76, 8, 2],
+  ['oso', 142, 30, 8, 2],
+  ['lobo', 106, 30, 8, 2],
+  ['arpia', 158, 52, 6, 2],
   // Montes Ferrosos
-  ['troll', 196, 56, 7, 4],
-  ['troll', 180, 62, 6, 3],
-  ['arpia', 212, 46, 6, 3],
-  ['golem', 206, 64, 6, 2],
+  ['troll', 196, 56, 7, 3],
+  ['troll', 180, 62, 6, 2],
+  ['arpia', 212, 46, 6, 2],
+  ['golem', 206, 64, 6, 1],
   // Pantano de Nieblaseca
-  ['babosa', 180, 130, 8, 5],
-  ['sapo', 200, 142, 8, 5],
-  ['lagarto', 216, 120, 7, 4],
-  ['sapo', 176, 146, 7, 4],
-  ['lagarto', 196, 152, 7, 3],
-  ['babosa', 214, 98, 6, 3],
+  ['babosa', 180, 130, 8, 3],
+  ['sapo', 200, 142, 8, 3],
+  ['lagarto', 216, 120, 7, 3],
+  ['sapo', 176, 146, 7, 2],
+  ['lagarto', 196, 152, 7, 2],
+  ['babosa', 214, 98, 6, 2],
 ];
 
 /** Zonas con nombre, para el letrero de zona. Se elige la primera que contenga el punto. */
 export const AREAS: { name: string; x: number; y: number; w: number; h: number }[] = [
-  { name: 'Isla de Albor', x: 0, y: 100, w: 62, h: 70 },
+  { name: 'Campos de Albor', x: 0, y: 86, w: 108, h: 94 },
   { name: 'Montes Ferrosos', x: 165, y: 0, w: 75, h: 75 },
   { name: 'Pantano de Nieblaseca', x: 165, y: 90, w: 75, h: 80 },
   { name: 'Bosque Umbrío', x: 55, y: 0, w: 110, h: 62 },

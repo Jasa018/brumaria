@@ -6,6 +6,7 @@ import { QUESTS, QUEST_BY_ID } from '../data/quests';
 import { SPELLS, type SpellDef } from '../data/spells';
 import { G, GROUNDS, O, OBJECTS } from '../data/tiles';
 import { VOCATIONS, type VocId } from '../data/vocations';
+import { isUnderground } from '../data/world';
 import { hear } from './dialog';
 import { findPath, lineOfSight, type Step } from './path';
 import { rand } from './rng';
@@ -161,9 +162,47 @@ export class Game {
     return id === undefined ? undefined : this.creatures.get(id);
   }
 
-  /** Libre para pisar: suelo transitable y sin nadie encima. */
-  free(x: number, y: number, z: number): boolean {
-    return this.map.walkable(x, y, z) && !this.occ.has(this.map.key(x, y, z));
+  /**
+   * Libre para pisar: suelo transitable, sin nadie encima, sin puerta cerrada y, para el portón de Albor,
+   * solo el jugador que ya tiene permiso.
+   */
+  free(x: number, y: number, z: number, who: 'player' | 'monster' | 'any' = 'any'): boolean {
+    if (!this.map.walkable(x, y, z) || this.occ.has(this.map.key(x, y, z))) return false;
+    const o = this.map.o(x, y, z);
+    if (o === O.DOOR) return false;
+    if (o === O.GATE) return who === 'player' && this.gateOpen();
+    return true;
+  }
+
+  /** El portón de Albor se abre al terminar la misión de los Ductos. */
+  gateOpen(): boolean {
+    return this.player.quests['ductos']?.state === 'done';
+  }
+
+  private gateMsgAt = 0;
+  private gateBlocked() {
+    if (this.time < this.gateMsgAt) return;
+    this.gateMsgAt = this.time + 4000;
+    const p = this.player;
+    let guard: Creature | undefined;
+    for (const c of this.creatures.values()) if (c.npc?.id === 'guardia_albor' && c.z === p.z && cheb(c, p) <= 6 && (!guard || cheb(c, p) < cheb(guard, p))) guard = c;
+    const text = '¡Alto! Nadie sale de Albor sin el permiso del capitán Rurik. Lo encontrarás en el cuartel, aquí al lado.';
+    if (guard) this.npcSay(guard, text);
+    else this.msg(text, 'orange');
+  }
+
+  /** Abre o cierra una puerta junto al jugador. */
+  toggleDoor(x: number, y: number): boolean {
+    const p = this.player;
+    if (p.dead || cheb({ x, y }, p) > 1) return false;
+    const o = this.map.o(x, y, p.z);
+    if (o === O.DOOR) this.map.setO(x, y, p.z, O.DOOR_OPEN);
+    else if (o === O.DOOR_OPEN) {
+      if (this.occ.has(this.map.key(x, y, p.z))) return void this.msg('Hay alguien en la puerta.', 'gray'), false;
+      this.map.setO(x, y, p.z, O.DOOR);
+    } else return false;
+    this.sound('door');
+    return true;
   }
 
   inView(c: { x: number; y: number; z: number }): boolean {
@@ -230,7 +269,7 @@ export class Game {
   }
   /** Oscuridad ambiente entre 0 (día) y 1 (cueva negra). */
   darkness(): number {
-    if (this.player.z > 0) return 0.93;
+    if (isUnderground(this.player.z)) return 0.93;
     const h = this.hour();
     // Noche de 21 a 5, con amanecer y atardecer de 2 horas
     if (h >= 7 && h < 19) return 0;
@@ -292,7 +331,14 @@ export class Game {
     if (this.time >= p.nextMove) {
       if (p.path.length) {
         const s = p.path[0];
-        if (this.free(s.x, s.y, p.z)) {
+        if (this.map.o(s.x, s.y, p.z) === O.DOOR || (this.map.o(s.x, s.y, p.z) === O.GATE && !this.gateOpen())) {
+          // Abre la puerta (o avisa el guardia) y sigue
+          this.step(p, s.x - p.x, s.y - p.y);
+          if (this.map.o(s.x, s.y, p.z) === O.GATE) {
+            p.path = [];
+            p.pathGoal = null;
+          }
+        } else if (this.free(s.x, s.y, p.z, 'player')) {
           p.path.shift();
           this.step(p, s.x - p.x, s.y - p.y);
         } else if (p.pathGoal) {
@@ -303,7 +349,7 @@ export class Game {
           p.nextMove = this.time + 150;
         }
       } else if (target && p.chase && this.weaponType() === 'melee' && cheb(p, target) > 1) {
-        const path = findPath(p.x, p.y, target.x, target.y, (x, y) => this.free(x, y, p.z), { maxNodes: 600, adjacent: true });
+        const path = findPath(p.x, p.y, target.x, target.y, (x, y) => this.free(x, y, p.z, 'player'), { maxNodes: 600, adjacent: true });
         if (path && path.length) this.step(p, path[0].x - p.x, path[0].y - p.y);
         else p.nextMove = this.time + 300;
       }
@@ -342,7 +388,21 @@ export class Game {
     const nx = c.x + dx;
     const ny = c.y + dy;
     if (dx || dy) c.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 3 : 1) : dy > 0 ? 0 : 2;
-    if (!this.free(nx, ny, c.z)) return false;
+    const who = c.kind === 'player' ? 'player' : c.kind === 'monster' ? 'monster' : 'any';
+    if (c.kind === 'player') {
+      const o = this.map.o(nx, ny, c.z);
+      if (o === O.DOOR && !this.occ.has(this.map.key(nx, ny, c.z))) {
+        this.toggleDoor(nx, ny);
+        c.nextMove = this.time + 250;
+        return false;
+      }
+      if (o === O.GATE && !this.gateOpen()) {
+        this.gateBlocked();
+        c.nextMove = this.time + 400;
+        return false;
+      }
+    }
+    if (!this.free(nx, ny, c.z, who)) return false;
     if (c.kind === 'monster' && (this.map.isPz(nx, ny, c.z) || this.map.isStairs(nx, ny, c.z))) return false;
     this.occ.delete(this.map.key(c.x, c.y, c.z));
     c.fromX = c.x;
@@ -439,7 +499,8 @@ export class Game {
   /** Para planear rutas: las criaturas solo cuentan como obstáculo si están al lado (las demás se moverán). */
   private playerPassable() {
     const p = this.player;
-    return (x: number, y: number) => this.map.walkable(x, y, p.z) && (cheb({ x, y }, p) > 1 || !this.occ.has(this.map.key(x, y, p.z)));
+    const gate = this.gateOpen();
+    return (x: number, y: number) => this.map.walkable(x, y, p.z) && (gate || this.map.o(x, y, p.z) !== O.GATE) && (cheb({ x, y }, p) > 1 || !this.occ.has(this.map.key(x, y, p.z)));
   }
 
   /** Caminar hasta una casilla haciendo clic. */
@@ -818,7 +879,7 @@ export class Game {
   }
 
   private monsterPassable(m: Creature) {
-    return (x: number, y: number) => this.free(x, y, m.z) && !this.map.isPz(x, y, m.z) && !this.map.isStairs(x, y, m.z);
+    return (x: number, y: number) => this.free(x, y, m.z, 'monster') && !this.map.isPz(x, y, m.z) && !this.map.isStairs(x, y, m.z);
   }
 
   private moveToward(m: Creature, tx: number, ty: number) {
@@ -1361,12 +1422,8 @@ export class Game {
     };
     for (const [id, n] of starter[v] ?? []) this.addItem(id, n, true);
     this.msg(`¡Ahora eres ${VOCATIONS[v].name.toLowerCase()}! Equipa tu nueva arma desde la mochila.`, 'yellow');
-    const t = this.map.temples['valcorona'];
-    p.home = 'valcorona';
-    this.teleport(p, t.x, t.y, t.z);
-    this.fx(p.x, p.y, p.z, 'teleport');
-    this.emit({ t: 'floor' });
-    this.msg('El Oráculo te envía a Valcorona, la capital. Allí podrás aprender hechizos con la Maestra Selene.', 'yellow');
+    this.fx(p.x, p.y, p.z, 'levelup');
+    this.msg('En Valcorona, la capital (siguiendo el camino al este de Albor), la Maestra Selene enseña los hechizos de tu vocación.', 'yellow');
     this.sound('quest');
   }
 

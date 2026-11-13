@@ -3,7 +3,8 @@ import { G, GROUNDS, O, OBJECTS } from '../data/tiles';
 import type { Missile } from '../data/monsters';
 import { VIEW_H, VIEW_W, type Game } from '../game/game';
 import type { Creature, FxKind, GameEvent } from '../game/types';
-import { GROUND_PRIO, TILE, corpseSprite, creatureSprite, edgeSprite, groundSprite, objectOffset, objectSprite, rockBlock, rockTop } from './sprites';
+import { GROUND_PRIO, TILE, corpseSprite, creatureSprite, edgeSprite, groundSprite, objectOffset, objectSprite, rockBlock, rockTop, roofSprite } from './sprites';
+import { UPPER_Z } from '../data/world';
 
 /** Los personajes se dibujan elevados hacia arriba a la izquierda, como si tuvieran altura. */
 const DISP = 6;
@@ -13,7 +14,7 @@ const S = 2; // escala del canvas respecto a los píxeles del mundo
 const COLS = VIEW_W * 2 + 1;
 const ROWS = VIEW_H * 2 + 1;
 
-const FLAT = new Set<number>([O.DOOR, O.STAIRS_DOWN, O.STAIRS_UP, O.FLOWERS, O.BONES, O.WEB, O.MUSHROOMS, O.RUBBLE, O.REEDS, O.CHAIR]);
+const FLAT = new Set<number>([O.DOOR_OPEN, O.STAIRS_DOWN, O.STAIRS_UP, O.FLOWERS, O.BONES, O.WEB, O.MUSHROOMS, O.RUBBLE, O.REEDS, O.CHAIR]);
 
 interface Fx { x: number; y: number; z: number; kind: FxKind; start: number }
 interface Dmg { x: number; y: number; z: number; text: string; color: string; start: number }
@@ -121,6 +122,15 @@ export class Renderer {
     for (let y = y0; y <= y1; y++)
       for (let x = x0; x <= x1; x++) {
         if (!map.inBounds(x, y, z) || !game.isExplored(x, y, z)) continue;
+        if (z === UPPER_Z && map.g(x, y, z) === G.VOID) {
+          const g0 = map.g(x, y, 0);
+          if (g0 !== G.ROCK && g0 !== G.VOID) {
+            ctx.drawImage(groundSprite(g0, x, y, 0, frame), sx(x), sy(y));
+            ctx.fillStyle = 'rgba(8,6,14,0.55)';
+            ctx.fillRect(sx(x), sy(y), TILE, TILE);
+          }
+          continue;
+        }
         const g = map.g(x, y, z);
         if (g === G.ROCK) ctx.drawImage(rockTop(map.style(x, y, z), x, y), sx(x), sy(y));
         else {
@@ -164,8 +174,10 @@ export class Renderer {
           ctx.drawImage(rockBlock(map.style(x, y, z), x, y), sx(x) - 16, sy(y) - 16);
         const o = map.o(x, y, z);
         if (!o || FLAT.has(o)) continue;
-        const spr = objectSprite(o, x, y, frame, o === O.MOUNTAIN && map.g(x, y, z) === G.SNOW);
-        const [ox2, oy2] = objectOffset(o);
+        const gateOpen = o === O.GATE && game.gateOpen();
+        const flag = o === O.MOUNTAIN ? map.g(x, y, z) === G.SNOW : o === O.DOOR ? [map.o(x - 1, y, z), map.o(x + 1, y, z), map.o(x, y - 1, z), map.o(x, y + 1, z)].includes(O.WOODWALL) : gateOpen;
+        const spr = objectSprite(o, x, y, frame, flag);
+        const [ox2, oy2] = objectOffset(o, gateOpen);
         ctx.drawImage(spr, sx(x) + ox2, sy(y) + oy2);
       }
       for (const c of byRow.get(y) ?? []) {
@@ -187,6 +199,16 @@ export class Renderer {
         }
         ctx.drawImage(spr, dx, dy, w, w);
       }
+    }
+
+    // Tejados (como en los RPG clásicos: desaparecen al entrar en un edificio)
+    if (z === 0 && !map.hasRoof(p.x, p.y)) {
+      for (let y = y0; y <= y1; y++)
+        for (let x = x0; x <= x1; x++) {
+          if (!map.hasRoof(x, y) || !game.isExplored(x, y, 0)) continue;
+          const mask = (map.hasRoof(x, y - 1) ? 1 : 0) | (map.hasRoof(x + 1, y) ? 2 : 0) | (map.hasRoof(x, y + 1) ? 4 : 0) | (map.hasRoof(x - 1, y) ? 8 : 0);
+          ctx.drawImage(roofSprite(mask, (x * 7 + y * 3) % 3), sx(x) - 16, sy(y) - 16);
+        }
     }
 
     // 3. Efectos y proyectiles
@@ -348,6 +370,7 @@ export class Renderer {
 function mapColor(game: Game, x: number, y: number, z: number): string | null {
   if (!game.isExplored(x, y, z)) return null;
   const map = game.map;
+  if (z === UPPER_Z && map.g(x, y, z) === G.VOID) return game.isExplored(x, y, 0) ? mapColor(game, x, y, 0) : null;
   const o = map.o(x, y, z);
   if (map.isStairs(x, y, z)) return '#ffd23f';
   const oc = OBJECTS[o]?.map;

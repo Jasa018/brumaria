@@ -88,7 +88,8 @@ export class Panels {
     const area = g.map.areaName(p.x, p.y, p.z);
     const s = `${area}|${hh}:${mm}|${p.z}`;
     if (!this.changed('where', s)) return;
-    $('#where').innerHTML = `<span>${esc(area)}</span><span>${p.z > 0 ? `Subsuelo ${p.z}` : `${h >= 7 && h < 19 ? '☀' : '☾'} ${hh}:${mm}`}</span>`;
+    const floor = p.z === 3 ? 'Planta alta' : p.z > 0 ? `Subsuelo ${p.z}` : `${h >= 7 && h < 19 ? '☀' : '☾'} ${hh}:${mm}`;
+    $('#where').innerHTML = `<span>${esc(area)}</span><span>${floor}</span>`;
   }
 
   private stats() {

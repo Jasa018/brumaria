@@ -151,6 +151,7 @@ const ITEM_LIST: ItemDef[] = [
   { id: 'corazon_ceniza', name: 'corazón de ceniza', kind: 'quest', icon: 'heart', c1: '#ff7a3d', c2: '#2a2a2a', weight: 5, value: 0, desc: 'El corazón del wyrm Ignaroth. Aún late.' },
 
   // ---- Misiones ----
+  { id: 'corona_rata', name: 'corona del Rey de las Ratas', kind: 'quest', icon: 'gem', c1: '#f2c94c', c2: '#b8860b', weight: 2, value: 0, desc: 'Mugrienta, pero de oro. El capitán Rurik querrá verla.' },
   { id: 'carta_teodoro', name: 'carta sellada', kind: 'quest', icon: 'scroll', c1: '#efe6d6', c2: '#c0392b', weight: 0.5, value: 0, desc: 'Para el capitán Bertrán de Valcorona.' },
   { id: 'filacteria', name: 'filacteria del nigromante', kind: 'quest', icon: 'skull', c1: '#7a5cff', weight: 3, value: 0, desc: 'El alma del nigromante Morvaine estaba encerrada aquí.' },
   { id: 'llave_mina', name: 'llave oxidada', kind: 'quest', icon: 'key', c1: '#c96a3a', weight: 1, value: 0 },

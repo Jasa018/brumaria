@@ -15,6 +15,13 @@ Toma mecánicas del género (casillas, ataque automático cada 2 s, palabras cla
 
 ## Reglas
 
+- Plantas: 0 superficie, 1 y 2 subsuelo (`isUnderground`), 3 plantas altas de las casas (`UPPER_Z`). En la planta alta, donde no hay suelo (`G.VOID`) se dibuja la superficie oscurecida. Las escaleras de casa son `^` (planta baja) y `v` (planta alta) en la misma casilla.
+- Albor (`data/albor.ts`) se construye por piezas: casas de 9 × 7 con planta baja y alta; las del sur se usan volteadas.
+- Las puertas cerradas (`O.DOOR`) y el portón (`O.GATE`) son transitables a nivel de mapa (para la conectividad), pero `Game.free()` las bloquea: las puertas a todos hasta que se abren (`toggleDoor`) y el portón a todos salvo al jugador con la misión `ductos` terminada. El estado de las puertas vive en `map.obj` y no se guarda.
+- Los tejados (`map.roof`) cubren los suelos interiores (madera o baldosas) dentro de los pueblos y los muros que los rodean. No pongas madera (`_`, `h`, `o`...) en calles o plazas, o les saldrá tejado.
+- Las fronteras entre regiones (`ridge` en `genTerrain`) son crestas de roca o bosque cerrado: el mapa se recorre por caminos y pasos.
+- Reaparición: 3 min en superficie, 4 min en cuevas, 20 min los jefes. Prefiere mazmorras con muchas salas (`rooms`) y pocas criaturas.
+
 - Las plantillas de pueblo deben tener todas las filas del mismo ancho; los dígitos son NPC (ver `npcs` del pueblo), `@` es el punto de reaparición del templo y `D` la escalera a la cueva del pueblo.
 - Los objetos que bloquean el paso en las cuevas solo se colocan junto a paredes de sala (`wallNear` en `decorateCave`), para no cortar pasillos.
 - Las criaturas no entran en zonas protegidas (`pz`) ni pisan escaleras, y no aparecen a la vista del jugador.

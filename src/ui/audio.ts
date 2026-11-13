@@ -88,5 +88,6 @@ export function play(s: SoundName) {
     case 'eat': noise(0.05, 0.03); noise(0.05, 0.03, 0.12); break;
     case 'stairs': tone(300, 0.12, 'triangle', 0.04, -100); tone(200, 0.12, 'triangle', 0.04, -80, 0.1); break;
     case 'bow': tone(900, 0.07, 'triangle', 0.03, -500); break;
+    case 'door': noise(0.06, 0.04); tone(120, 0.12, 'square', 0.03, -40, 0.03); break;
   }
 }

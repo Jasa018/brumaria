@@ -53,6 +53,25 @@ export interface MonsterDef {
 }
 
 const LIST: MonsterDef[] = [
+  // ---------- Los Ductos, bajo Albor (niveles 1-6) ----------
+  {
+    id: 'cucaracha', name: 'cucaracha gigante', hp: 30, exp: 12, speed: 90, armor: 2, defense: 3, melee: [0, 10],
+    look: { body: 'spider', c1: '#5a3a1a', c2: '#c9a27a', scale: 0.7 },
+    loot: [], gold: [0, 3], desc: 'Cruje cuando anda. Y cuando muerde.',
+  },
+  {
+    id: 'rata_gigante', name: 'rata gigante', hp: 55, exp: 22, speed: 85, armor: 2, defense: 4, melee: [0, 16],
+    look: { body: 'quad', c1: '#5a4e44', c2: '#c98a8a', scale: 0.9 },
+    loot: [['cola_rata', 0.6, 2], ['queso', 0.2, 1]], gold: [0, 8], desc: 'Del tamaño de un perro y con peor humor.',
+  },
+  {
+    id: 'rey_rata', name: 'Rey de las Ratas', hp: 420, exp: 300, speed: 90, armor: 4, defense: 8, melee: [0, 28],
+    summon: { id: 'rata', chance: 0.15 }, boss: true,
+    look: { body: 'quad', c1: '#6b5a4a', c2: '#f2c94c', scale: 1.4 },
+    loot: [['corona_rata', 1, 1], ['pocion_vida', 1, 2], ['escudo_madera', 0.5, 1], ['espada_corta', 0.5, 1]], gold: [40, 100],
+    desc: 'Gobierna los Ductos desde un trono de basura.',
+  },
+
   // ---------- Isla de Albor (niveles 1-6) ----------
   {
     id: 'rata', name: 'rata', hp: 20, exp: 5, speed: 75, armor: 1, defense: 2, melee: [0, 8],

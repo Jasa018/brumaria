@@ -44,9 +44,9 @@ export const NPC_LIST: NpcDef[] = [
     bye: 'Que los caminos te sean leves.',
     job: 'Guío a los jóvenes hacia su {vocación}.',
     keywords: {
-      aprendiz: 'Todos empiezan aquí, en la isla de Albor. Cuando alcances el {nivel 6}, podrás elegir tu {vocación}.',
-      continente: 'Al otro lado del mar está Brumaria: la capital {Valcorona}, los Montes Ferrosos, el Pantano de Nieblaseca...',
-      valcorona: 'La capital del reino. Allí te enviaré cuando elijas tu {vocación}.',
+      aprendiz: 'Todos empiezan aquí, tras las murallas de Albor. Cuando alcances el {nivel 6}, podrás elegir tu {vocación}.',
+      brumaria: 'Fuera de las murallas está Brumaria: la capital {Valcorona} al este, los Montes Ferrosos, el Pantano de Nieblaseca...',
+      valcorona: 'La capital del reino, al este. Allí la Maestra Selene enseña hechizos.',
     },
   },
   {
@@ -65,7 +65,7 @@ export const NPC_LIST: NpcDef[] = [
     look: human('#6aa84f', '#efe6d6', '#c96a3a'),
     greet: '¡Hola, hola! Bienvenido a la tienda de Mirta. ¿Quieres {comerciar}?',
     bye: '¡Vuelve pronto!',
-    job: 'Vendo un poco de todo: comida, antorchas, armas sencillas... y compro lo que traigas de la isla.',
+    job: 'Vendo un poco de todo: comida, antorchas, armas sencillas... y compro lo que traigas de los alrededores.',
     shop: {
       sells: [['pan', 3], ['manzana', 2], ['queso', 4], ['antorcha', 5], ['pocion_vida', 45], ['pocion_mana', 50], ['garrote', 5], ['daga', 10], ['honda', 15], ['gorro_cuero', 12], ['jubon', 20], ['calzas', 12], ['sandalias', 6], ['botas_cuero', 15]],
       buys: ISLAND_LOOT,
@@ -78,8 +78,10 @@ export const NPC_LIST: NpcDef[] = [
     bye: 'Cuídate, muchacho.',
     job: 'Soy el alcalde de Albor. O lo que queda de él.',
     keywords: {
-      albor: 'Albor es un pueblo pequeño, pero aquí empiezan todos los héroes de Brumaria.',
-      ratas: 'Malditas ratas. Viven en una cueva al norte del pueblo.',
+      albor: 'Albor es una ciudad pequeña y amurallada, pero aquí empiezan todos los héroes de Brumaria.',
+      ratas: 'Malditas ratas. Infestan los {Ductos}, bajo nuestros pies.',
+      ductos: 'Las viejas alcantarillas. Se entra por la rejilla de la plaza. Dicen que allí abajo manda una rata enorme.',
+      rurik: 'El capitán Rurik guarda el portón. Nadie sale sin su permiso.',
       bertran: 'El capitán Bertrán manda la guardia de Valcorona. Buen hombre, aunque gruñón.',
     },
   },
@@ -94,33 +96,41 @@ export const NPC_LIST: NpcDef[] = [
       buys: ['garrote', 'daga', 'espada_corta', 'hacha', 'escudo_madera', 'casco_hierro', 'jubon', 'calzas', 'gorro_cuero'],
     },
   },
-  {
-    id: 'odo', name: 'Odo el Barquero', town: 'albor', roles: ['travel'], travel: [{ town: 'sauce', price: 0 }],
-    look: human('#3e5fa8', '#efe6d6', '#8a6a4a'),
-    greet: 'Ahoy. Puedo llevarte al continente, a {Puerto Sauce}, si tienes una {vocación}. Di {viajar}.',
-    bye: 'Buen viento.',
-    job: 'Llevo a los que ya tienen vocación hasta el continente.',
-  },
 
-  // ======================= PUERTO SAUCE =======================
+
+
+
   {
-    id: 'marela', name: 'Capitana Marela', town: 'sauce', roles: ['travel'], travel: [{ town: 'albor', price: 20 }],
-    look: human('#3e5fa8', '#c0392b', '#2a1a10'),
-    greet: 'Bienvenido a Puerto Sauce. Llevo pasajeros a {Albor} por 20 de oro. Di {viajar}.',
-    bye: 'Que el mar te sea amable.',
-    job: 'Capitaneo el único barco entre Albor y el continente.',
-    keywords: { valcorona: 'Sigue el camino hacia el este y llegarás a la capital.' },
+    id: 'capitan_rurik', name: 'Capitán Rurik', town: 'albor',
+    look: human('#9aa0a6', '#a83a3a', '#5a3a1a', { helmet: true, weapon: 'sword' }),
+    greet: 'Soy el capitán Rurik, guardián del portón de Albor. Si quieres salir, antes tendrás que cumplir una {misión}.',
+    bye: 'Mantén la guardia alta.',
+    job: 'Mando la guardia de Albor. Nadie sale de la ciudad sin mi permiso.',
+    keywords: {
+      salir: 'Fuera hay bandidos, lobos y cosas peores. Demuestra tu valía en los {Ductos} y te dejaré pasar.',
+      ductos: 'Las alcantarillas bajo la ciudad. La entrada es la rejilla de la plaza.',
+      corona: 'El Rey de las Ratas lleva una corona robada. Tráemela como prueba.',
+    },
   },
   {
-    id: 'ismael', name: 'Ismael', town: 'sauce',
-    look: human('#8fb3c9', '#5a4a3a', '#c9a27a'),
-    greet: 'Pescado fresco, pociones y cuerdas. ¿Quieres {comerciar}?',
-    bye: 'Hasta la próxima marea.',
-    job: 'Soy pescador y mercader.',
-    shop: {
-      sells: [['pescado', 4], ['pan', 3], ['pocion_vida', 45], ['pocion_mana', 50], ['antorcha', 5], ['flecha', 1]],
-      buys: [...COMMON_LOOT, 'carne', 'jamon'],
+    id: 'guardia_albor', name: 'Guardia del portón', town: 'albor', roles: ['guard'],
+    look: human('#9aa0a6', '#a83a3a', '#3a2a1a', { helmet: true, weapon: 'sword' }),
+    greet: 'Alto. Nadie sale de Albor sin el permiso del capitán Rurik. Lo encontrarás en el cuartel, aquí al lado.',
+    bye: 'Circule.',
+    job: 'Vigilo el portón de Albor.',
+    idle: ['Sin permiso del capitán, nadie sale.', 'Todo tranquilo en el portón.'],
+  },
+  {
+    id: 'lena', name: 'Lena la Tejedora', town: 'albor',
+    look: human('#c96a9a', '#5a3a5a', '#c96a3a'),
+    greet: 'Oh, ¡visita! Pasa, pasa. Esta casa tiene dos plantas, ¿sabes? Arriba tengo mis telares.',
+    bye: 'Vuelve cuando quieras.',
+    job: 'Tejo las capas de la guardia.',
+    keywords: {
+      ductos: 'Por las noches se oye a las ratas correr bajo el suelo. ¡Qué asco!',
+      rurik: 'El capitán es serio, pero justo. Si le traes lo que pide, te dejará salir.',
     },
+    idle: ['¿Dónde habré dejado la lana azul...?'],
   },
 
   // ======================= VALCORONA =======================
@@ -214,9 +224,9 @@ export const NPC_LIST: NpcDef[] = [
   },
   {
     id: 'tobias', name: 'Tobías el Cochero', town: 'valcorona', roles: ['travel'],
-    travel: [{ town: 'hondaforja', price: 80 }, { town: 'juncal', price: 60 }, { town: 'sauce', price: 30 }],
+    travel: [{ town: 'hondaforja', price: 80 }, { town: 'juncal', price: 60 }, { town: 'albor', price: 40 }],
     look: human('#6b4a2a', '#efe6d6', '#8a6a4a'),
-    greet: '¿Necesitas transporte? Voy a {Hondaforja}, {Juncal} y {Puerto Sauce}. Di {viajar}.',
+    greet: '¿Necesitas transporte? Voy a {Hondaforja}, {Juncal} y {Albor}. Di {viajar}.',
     bye: '¡Arre!',
     job: 'Llevo viajeros en mi carro por los caminos del reino.',
   },
