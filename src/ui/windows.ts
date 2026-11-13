@@ -5,7 +5,7 @@ import { QUESTS } from '../data/quests';
 import { SPELLS } from '../data/spells';
 import { VOCATIONS } from '../data/vocations';
 import type { Look } from '../data/monsters';
-import { cheb, type Game } from '../game/game';
+import { Game, cheb } from '../game/game';
 import type { Corpse, PlayerData } from '../game/types';
 import { isComplete } from '../game/dialog';
 import { creatureSprite, itemIcon } from '../gfx/sprites';
@@ -136,6 +136,48 @@ export function checkLoot(game: Game) {
 
 export function refreshLoot(game: Game, panels: Panels) {
   if (openCorpse) openLoot(game, openCorpse, panels);
+}
+
+// ------------------------------------------------------------------ Baúl de casa
+
+export function openDepot(game: Game, panels: Panels) {
+  const w = openWin('depot', 'Baúl', { x: 40, y: 60, width: 440 });
+  const render = () => {
+    w.body.innerHTML = '';
+    const p = game.player;
+    const depot = p.depot ?? [];
+    w.body.append(el('div', { cls: 'muted', innerHTML: 'Lo que guardas aquí está en <b>todas</b> tus casas. Clic en un objeto para moverlo.<br><br>' }));
+    const grid = (title: string, list: { id: string; n: number }[], slots: number, onClick: (i: number) => void, tip: string) => {
+      w.body.append(el('h3', { textContent: `${title} (${list.length}/${slots})` }));
+      const g = el('div', { cls: 'slots' });
+      g.style.gridTemplateColumns = 'repeat(8, 1fr)';
+      g.style.marginBottom = '8px';
+      for (let i = 0; i < Math.max(list.length, 8); i++) {
+        const st = list[i];
+        const s = el('div', { cls: 'slot' });
+        if (st) {
+          s.append(spriteEl(itemIcon(item(st.id))));
+          if (st.n > 1) s.append(el('span', { cls: 'n', textContent: String(st.n) }));
+          withTip(s, () => itemTip(st.id, st.n, `<span class="d">${tip}</span>`));
+          s.onclick = () => {
+            hideTip();
+            onClick(i);
+            panels.forceInv();
+            render();
+          };
+        }
+        g.append(s);
+      }
+      w.body.append(g);
+    };
+    grid('Baúl', depot, Game.DEPOT_SLOTS, (i) => game.withdraw(i), 'Clic: sacar');
+    grid('Mochila', p.inv, 24, (i) => game.deposit(i), 'Clic: guardar');
+  };
+  render();
+}
+
+export function checkDepot(game: Game) {
+  if (getWin('depot') && !game.nearOwnChest()) closeWin('depot');
 }
 
 // ------------------------------------------------------------------ Habilidades

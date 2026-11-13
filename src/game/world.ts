@@ -29,6 +29,17 @@ export interface NpcPlacement {
   z: number;
 }
 
+export interface HouseDef {
+  id: string;
+  town: string;
+  name: string;
+  door: Pos;
+  chest: Pos | null;
+  /** Casillas interiores (las dos plantas). */
+  size: number;
+  price: number;
+}
+
 export interface TownRect {
   id: string;
   name: string;
@@ -61,6 +72,10 @@ export class WorldMap {
   temples: Record<string, Pos> = {};
   towns: TownRect[] = [];
   caveEntrances: Record<string, Pos> = {};
+  houses: HouseDef[] = [];
+  /** Puerta de casa -> id de la casa; baúl -> id de la casa. */
+  houseDoors = new Map<number, string>();
+  houseChests = new Map<number, string>();
   /** Tejados sobre los edificios (solo superficie). */
   roof: Uint8Array = new Uint8Array(0);
   warnings: string[] = [];
@@ -182,6 +197,7 @@ export class WorldMap {
     this.genRiver();
     this.genObjects(rng);
     this.stampTowns();
+    this.registerHouses();
     this.genRoads(rng);
     this.genAreas();
     this.genCaves(rng);
@@ -393,6 +409,9 @@ export class WorldMap {
             case 'M': set(G.DIRT, O.MOUNTAIN); break;
             case 'G': set(G.COBBLE, O.GATE); break;
             case 'p': set(G.WOOD, O.PLANT); break;
+            case 'u': set(G.GRASS, O.BUSH); break;
+            case '$': set(G.WOOD, O.DOOR); this.houseDoors.set(this.key(x, y, 0), ''); break;
+            case '&': set(G.WOOD, O.CHEST); break;
             case '^': set(G.WOOD, O.STAIRS_UP); break;
             case 'D':
               set(G.COBBLE, O.STAIRS_DOWN);
@@ -428,7 +447,7 @@ export class WorldMap {
           this.setO(x, y, UPPER_Z, o);
           this.pz[UPPER_Z][y * this.W + x] = 1;
         };
-        const objs: Record<string, number> = { W: O.WOODWALL, '#': O.WALL, b: O.BED, t: O.TABLE, h: O.CHAIR, x: O.CRATE, B: O.BOOKSHELF, o: O.BARREL, p: O.PLANT, v: O.STAIRS_DOWN, c: O.COUNTER };
+        const objs: Record<string, number> = { W: O.WOODWALL, '#': O.WALL, b: O.BED, t: O.TABLE, h: O.CHAIR, x: O.CRATE, B: O.BOOKSHELF, o: O.BARREL, p: O.PLANT, v: O.STAIRS_DOWN, c: O.COUNTER, '&': O.CHEST };
         if (ch !== '_' && !(ch in objs)) throw new Error(`Pueblo ${t.id}: carácter de planta alta desconocido '${ch}'`);
         set(G.WOOD, objs[ch] ?? O.NONE);
       }));
@@ -465,6 +484,44 @@ export class WorldMap {
         const shell = o === O.WALL || o === O.WOODWALL || o === O.DOOR;
         if (interior(x, y) || (shell && DIRS8.some(([dx, dy]) => interior(x + dx, y + dy)))) this.roof[y * this.W + x] = 1;
       }
+  }
+
+  /** Cada puerta '$' es una casa en venta: se recorre su interior (y su planta alta) para medirla y encontrar el baúl. */
+  private registerHouses() {
+    const count: Record<string, number> = {};
+    const doors = [...this.houseDoors.keys()].sort((a, b) => a - b);
+    for (const k of doors) {
+      const door = this.unkey(k);
+      const town = this.townAt(door.x, door.y, 0);
+      if (!town) continue;
+      const inside = (x: number, y: number, z: number) => {
+        const gr = this.g(x, y, z);
+        const o = this.o(x, y, z);
+        if (gr !== G.WOOD && gr !== G.TILE) return false;
+        if (o === O.WALL || o === O.WOODWALL || o === O.DOOR || o === O.DOOR_OPEN) return false;
+        return z === UPPER_Z || this.hasRoof(x, y);
+      };
+      const seen = new Set<number>();
+      const q: Pos[] = [];
+      for (const [dx, dy] of DIRS4) if (inside(door.x + dx, door.y + dy, 0)) q.push({ x: door.x + dx, y: door.y + dy, z: 0 });
+      let chest: Pos | null = null;
+      while (q.length) {
+        const p = q.pop()!;
+        const pk = this.key(p.x, p.y, p.z);
+        if (seen.has(pk)) continue;
+        seen.add(pk);
+        if (this.o(p.x, p.y, p.z) === O.CHEST) chest = p;
+        if (this.o(p.x, p.y, p.z) === O.STAIRS_UP && this.o(p.x, p.y, UPPER_Z) === O.STAIRS_DOWN) q.push({ x: p.x, y: p.y, z: UPPER_Z });
+        for (const [dx, dy] of DIRS4) if (inside(p.x + dx, p.y + dy, p.z)) q.push({ x: p.x + dx, y: p.y + dy, z: p.z });
+      }
+      count[town.id] = (count[town.id] ?? 0) + 1;
+      const id = `${town.id}-${count[town.id]}`;
+      const factor = town.id === 'albor' ? 10 : 18;
+      const price = Math.max(500, Math.round((seen.size * factor) / 50) * 50);
+      this.houses.push({ id, town: town.id, name: `Casa ${count[town.id]} de ${town.name}`, door, chest, size: seen.size, price });
+      this.houseDoors.set(k, id);
+      if (chest) this.houseChests.set(this.key(chest.x, chest.y, chest.z), id);
+    }
   }
 
   private inTownRect(x: number, y: number): boolean {

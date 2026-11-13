@@ -115,6 +115,7 @@ const ITEM_LIST: ItemDef[] = [
   { id: 'pescado', name: 'pescado', kind: 'food', icon: 'fish', c1: '#8fb3c9', weight: 5, stack: true, value: 2, food: 144 },
   { id: 'carne', name: 'carne', kind: 'food', icon: 'meat', c1: '#b5523b', weight: 13, stack: true, value: 2, food: 180 },
   { id: 'jamon', name: 'jamón', kind: 'food', icon: 'meat', c1: '#d97a6b', weight: 20, stack: true, value: 4, food: 360 },
+  { id: 'cerveza', name: 'jarra de cerveza', kind: 'food', icon: 'potion', c1: '#d9a441', c2: '#f2f2f2', weight: 3, stack: true, value: 0, food: 40, desc: 'La especialidad de La Rata Borracha.' },
   { id: 'seta', name: 'seta blanca', kind: 'food', icon: 'mushroom', c1: '#efe6d6', c2: '#c9a27a', weight: 0.4, stack: true, value: 1, food: 108 },
 
   // ---- Pociones ----

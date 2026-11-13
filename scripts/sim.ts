@@ -209,7 +209,7 @@ console.log('Albor');
   else fail('la rejilla de los Ductos no es alcanzable');
   // Puertas
   let door: { x: number; y: number } | null = null;
-  for (let y = 0; y < map.H && !door; y++) for (let x = 0; x < map.W; x++) if (map.o(x, y, 0) === O.DOOR && map.townAt(x, y, 0)?.id === 'albor') { door = { x, y }; break; }
+  for (let y = 0; y < map.H && !door; y++) for (let x = 0; x < map.W; x++) if (map.o(x, y, 0) === O.DOOR && map.townAt(x, y, 0)?.id === 'albor' && !map.houseDoors.has(map.key(x, y, 0))) { door = { x, y }; break; }
   if (!door) fail('no hay puertas en Albor');
   else {
     const spot = g.findFreeNear(door.x, door.y, 0, 1)!;
@@ -229,6 +229,82 @@ console.log('Albor');
   for (let i = 0; i < map.roof.length; i++) roofs += map.roof[i];
   if (roofs > 300) ok(`${roofs} casillas con tejado`);
   else fail(`pocos tejados: ${roofs}`);
+}
+
+// ---------------------------------------------------------------- Charla, casas y baúl
+console.log('Charla y casas');
+{
+  const g = new Game(map, newPlayerData('Charla', look, map));
+  const pl = g.player;
+  const npcOf = (id: string) => [...g.creatures.values()].find((c) => c.npc?.id === id)!;
+  const ask = (id: string, ...lines: string[]) => {
+    const n = npcOf(id);
+    const spot = g.findFreeNear(n.x, n.y, n.z, 2)!;
+    g.teleport(pl, spot.x, spot.y, n.z);
+    pl.talkingTo = null;
+    g.events.length = 0;
+    g.say('hola');
+    for (const l of lines) g.say(l);
+    const said = g.events.filter((e) => e.t === 'chat' && e.npc).map((e) => (e.t === 'chat' ? e.text : ''));
+    return said[said.length - 1] ?? '';
+  };
+  const checks: [string, string[], RegExp][] = [
+    ['mirta', ['¿cómo estás?'], /.{10,}/],
+    ['mirta', ['¿dónde está el herrero?'], /Brann.*(este|oeste|norte|sur)/],
+    ['brann', ['¿quién es Teodoro?'], /alcalde/],
+    ['teodoro', ['¿dónde compro pan?'], /Mirta|Brom/],
+    ['brom', ['¿qué hora es?'], /las \d+/],
+    ['lena', ['cuéntame un chiste'], /.{15,}/],
+    ['lirio', ['¿algún rumor?'], /.{15,}/],
+    ['mirta', ['¿dónde está Valcorona?'], /Valcorona.*(este|norte)/],
+    ['hermana_lia', ['¿dónde están los ductos?'], /Ductos/],
+    ['teodoro', ['gracias'], /nada|placer|estamos|qué/i],
+    ['brom', ['blablabla xyz'], /trabajo|rumores|dónde/],
+  ];
+  let bad = 0;
+  for (const [id, lines, re] of checks) {
+    const r = ask(id, ...lines);
+    if (!re.test(r)) {
+      bad++;
+      fail(`charla con ${id} "${lines.join(' / ')}": ${r}`);
+    }
+  }
+  if (!bad) ok(`${checks.length} preguntas cotidianas respondidas con sentido`);
+  // Casas
+  const sale = map.houses.filter((h) => h.town === 'albor');
+  const juncal = map.houses.filter((h) => h.town === 'juncal');
+  if (sale.length >= 7 && juncal.length >= 1 && map.houses.every((h) => h.chest)) ok(`${map.houses.length} casas en venta (${sale.length} en Albor, ${juncal.length} en Juncal), todas con baúl`);
+  else fail(`casas: Albor ${sale.length}, Juncal ${juncal.length}, sin baúl: ${map.houses.filter((h) => !h.chest).map((h) => h.id)}`);
+  const h = sale[0];
+  const spot = g.findFreeNear(h.door.x, h.door.y, 0, 1)!;
+  g.teleport(pl, spot.x, spot.y, 0);
+  const lockedBefore = !g.toggleDoor(h.door.x, h.door.y);
+  pl.gold = 100000;
+  const reply = ask('teodoro', 'casas', h.name.toLowerCase(), 'si');
+  const owned = g.ownsHouse(h.id);
+  g.teleport(pl, spot.x, spot.y, 0);
+  const opens = g.toggleDoor(h.door.x, h.door.y);
+  if (lockedBefore && owned && opens) ok(`la puerta está cerrada con llave hasta comprar la casa ("${reply}")`);
+  else fail(`compra de casa: cerrada=${lockedBefore} comprada=${owned} abre=${opens} (${reply})`);
+  // Baúl compartido: se guarda en una casa y se saca en otra
+  const c1 = h.chest!;
+  const near1 = g.findFreeNear(c1.x, c1.y, c1.z, 1)!;
+  g.teleport(pl, near1.x, near1.y, c1.z);
+  g.addItem('rubi', 3, true);
+  const idx = pl.inv.findIndex((x) => x.id === 'rubi');
+  g.deposit(idx);
+  const stored = (pl.depot ?? []).some((x) => x.id === 'rubi' && x.n === 3) && g.count('rubi') === 0;
+  const h2 = juncal[0];
+  pl.houses!.push(h2.id);
+  const c2 = h2.chest!;
+  const near2 = g.findFreeNear(c2.x, c2.y, c2.z, 1)!;
+  g.teleport(pl, near2.x, near2.y, c2.z);
+  g.withdraw((pl.depot ?? []).findIndex((x) => x.id === 'rubi'));
+  if (stored && g.count('rubi') === 3) ok('el baúl es compartido entre casas de distintos pueblos');
+  else fail(`baúl: guardado=${stored}, recuperado=${g.count('rubi')}`);
+  const saved = JSON.parse(JSON.stringify(g.save()));
+  if (saved.houses.includes(h.id)) ok('las casas compradas se guardan con la partida');
+  else fail('las casas no se guardan');
 }
 
 // ---------------------------------------------------------------- Combate

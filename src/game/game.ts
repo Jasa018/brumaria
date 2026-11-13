@@ -191,12 +191,86 @@ export class Game {
     else this.msg(text, 'orange');
   }
 
+  private lockMsgAt = 0;
+
+  ownsHouse(id: string): boolean {
+    return (this.player.houses ?? []).includes(id);
+  }
+
+  buyHouse(id: string): boolean {
+    const p = this.player;
+    const h = this.map.houses.find((hh) => hh.id === id);
+    if (!h || this.ownsHouse(id) || p.gold < h.price) return false;
+    p.gold -= h.price;
+    p.houses = [...(p.houses ?? []), id];
+    this.msg(`¡Ahora eres dueño de la ${h.name}! Su puerta ya se abre para ti. En el baúl puedes guardar objetos: lo que guardes estará en todas tus casas.`, 'yellow');
+    this.sound('quest');
+    return true;
+  }
+
+  /** Clic en un baúl: si la casa es tuya, abre el almacén compartido. */
+  openChest(x: number, y: number) {
+    const p = this.player;
+    const house = this.map.houseChests.get(this.map.key(x, y, p.z));
+    if (cheb({ x, y }, p) > 1) return void this.walkTo(x, y);
+    if (!house || !this.ownsHouse(house)) return void this.msg('Este baúl no es tuyo.', 'gray');
+    this.emit({ t: 'depot' });
+  }
+
+  /** ¿Está el jugador junto a un baúl de una casa suya? */
+  nearOwnChest(): boolean {
+    const p = this.player;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const h = this.map.houseChests.get(this.map.key(p.x + dx, p.y + dy, p.z));
+        if (h && this.ownsHouse(h)) return true;
+      }
+    return false;
+  }
+
+  static readonly DEPOT_SLOTS = 60;
+
+  deposit(idx: number) {
+    const p = this.player;
+    const s = p.inv[idx];
+    if (!s || !this.nearOwnChest()) return;
+    const depot = (p.depot ??= []);
+    const same = item(s.id).stack ? depot.find((d) => d.id === s.id) : undefined;
+    if (same) same.n += s.n;
+    else if (depot.length < Game.DEPOT_SLOTS) depot.push({ ...s });
+    else return void this.msg('El baúl está lleno.', 'gray');
+    p.inv.splice(idx, 1);
+    this.emit({ t: 'inv' });
+  }
+
+  withdraw(idx: number) {
+    const p = this.player;
+    const depot = p.depot ?? [];
+    const s = depot[idx];
+    if (!s || !this.nearOwnChest()) return;
+    const n = this.addItem(s.id, s.n);
+    if (n <= 0) return void this.msg(p.inv.length >= INV_SLOTS ? 'Tu mochila está llena.' : 'No puedes cargar tanto peso.', 'gray');
+    s.n -= n;
+    if (s.n <= 0) depot.splice(idx, 1);
+  }
+
   /** Abre o cierra una puerta junto al jugador. */
   toggleDoor(x: number, y: number): boolean {
     const p = this.player;
     if (p.dead || cheb({ x, y }, p) > 1) return false;
     const o = this.map.o(x, y, p.z);
-    if (o === O.DOOR) this.map.setO(x, y, p.z, O.DOOR_OPEN);
+    if (o === O.DOOR) {
+      const house = this.map.houseDoors.get(this.map.key(x, y, p.z));
+      if (house && !this.ownsHouse(house)) {
+        if (this.time >= this.lockMsgAt) {
+          this.lockMsgAt = this.time + 3000;
+          const h = this.map.houses.find((hh) => hh.id === house)!;
+          this.msg(`La puerta está cerrada con llave. ${h.name} está a la venta por ${h.price} de oro: pregunta por las casas al alcalde Teodoro (Albor) o al escribano Ciro (Juncal).`, 'gray');
+        }
+        return false;
+      }
+      this.map.setO(x, y, p.z, O.DOOR_OPEN);
+    }
     else if (o === O.DOOR_OPEN) {
       if (this.occ.has(this.map.key(x, y, p.z))) return void this.msg('Hay alguien en la puerta.', 'gray'), false;
       this.map.setO(x, y, p.z, O.DOOR);
@@ -1486,6 +1560,7 @@ export class Game {
       spells: [...p.spells], hotbar: [...p.hotbar], quests: structuredClone(p.quests), home: p.home,
       pos: { ...safe }, explored: p.exploredBits.map(toB64), worldTime: p.worldTime + this.time,
       stats: { ...p.stats }, ended: p.ended,
+      houses: [...(p.houses ?? [])], depot: structuredClone(p.depot ?? []),
     };
   }
 }

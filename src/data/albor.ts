@@ -2,6 +2,7 @@
 // Usa la misma leyenda que las plantillas de data/world.ts, más:
 //   '^' escalera que sube (planta baja)   'v' escalera que baja (planta alta)
 //   'G' portón de la ciudad              'p' maceta
+//   '$' puerta de una casa en venta (con llave hasta que es tuya)   '&' baúl de la casa
 
 const W = 62;
 const H = 38;
@@ -22,7 +23,7 @@ const HOUSES: { ground: string[]; upper: string[] }[] = [
       'WWWWWWWWW',
       'W_b___b_W',
       'W_______W',
-      'W_x___v_W',
+      'W_&___v_W',
       'W_______W',
       'W_t__h__W',
       'WWWWWWWWW',
@@ -44,7 +45,7 @@ const HOUSES: { ground: string[]; upper: string[] }[] = [
       'W_______W',
       'W_B___t_W',
       'W_______W',
-      'W_x_h___W',
+      'W_&_h___W',
       'WWWWWWWWW',
     ],
   },
@@ -63,7 +64,7 @@ const HOUSES: { ground: string[]; upper: string[] }[] = [
       'W_b_____W',
       'W___t_h_W',
       'W_______W',
-      'W_B___x_W',
+      'W_B___&_W',
       'W______vW',
       'WWWWWWWWW',
     ],
@@ -84,7 +85,7 @@ const HOUSES: { ground: string[]; upper: string[] }[] = [
       'W_______W',
       'W_v_____W',
       'W_______W',
-      'W_x_t_h_W',
+      'W_&_t_h_W',
       'WWWWWWWWW',
     ],
   },
@@ -153,17 +154,19 @@ const PLAZA = [
   'L,,,,,,,,,,,,,L',
 ];
 
-const PARK = [
-  ',,,,,,,,,,,,,,,',
-  ',T,,*,,,,,*,,T,',
-  ',,,,,,,,,,,,,,,',
-  ',*,,,,,w,,,,,*,',
-  ',,,,,,,,,,,,,,,',
-  ',T,,,,,,,,,,T,,',
-  ',,,*,,,,,,,*,,,',
-  ',,,,,,,,,,,,,,,',
-  ',,T,,,,,,,,,,T,',
+/** Taberna «La Rata Borracha»: barra, barriles, mesas y chimenea. */
+const PUB = [
+  'WWWWWW++WWWWWWW',
+  'W_____________W',
+  'W_t_h___h_t_h_W',
+  'W_h_____t_____W',
+  'W____0________W',
+  'Wcccccc_____K_W',
+  'Wo8o_o______p_W',
+  'WWWWWWWWWWWWWWW',
 ];
+
+import { greenify } from './greenify';
 
 type Grid = string[][];
 
@@ -172,6 +175,8 @@ function put(g: Grid, x: number, y: number, rows: string[]) {
     if (ch !== ' ') g[y + j][x + i] = ch;
   }));
 }
+
+const forSale = (rows: string[]) => rows.map((r) => r.replace('+', '$'));
 
 export function buildAlbor(): { map: string[]; upper: string[] } {
   const g: Grid = Array.from({ length: H }, () => Array(W).fill(','));
@@ -185,10 +190,11 @@ export function buildAlbor(): { map: string[]; upper: string[] } {
   const cols = [2, 12, 41, 51];
   cols.forEach((x, i) => {
     const h = HOUSES[i % 4];
-    put(g, x, 2, h.ground);
+    // La segunda casa del norte es de Lena; las demás están a la venta
+    put(g, x, 2, i === 1 ? h.ground : forSale(h.ground));
     put(u, x, 2, h.upper);
     const s = HOUSES[(i + 2) % 4];
-    put(g, x, 28, [...s.ground].reverse());
+    put(g, x, 28, forSale([...s.ground].reverse()));
     put(u, x, 28, [...s.upper].reverse());
   });
   put(g, 24, 2, TEMPLE);
@@ -197,7 +203,7 @@ export function buildAlbor(): { map: string[]; upper: string[] } {
   put(g, 41, 14, SMITHY);
   put(g, 51, 14, BARRACKS);
   put(g, 24, 13, PLAZA);
-  put(g, 24, 27, PARK);
+  put(g, 24, 28, PUB);
   // Faroles en la avenida principal
   for (const x of [8, 18, 22, 39, 47, 57]) {
     g[21][x] = 'L';
@@ -207,5 +213,5 @@ export function buildAlbor(): { map: string[]; upper: string[] } {
   g[22][W - 2] = '7';
   g[25][W - 2] = '7';
   g[4][15] = '9';
-  return { map: g.map((r) => r.join('')), upper: u.map((r) => r.join('')) };
+  return { map: greenify(g.map((r) => r.join('')), [W - 2, 23], 4242), upper: u.map((r) => r.join('')) };
 }

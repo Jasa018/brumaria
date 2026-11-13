@@ -96,6 +96,7 @@ export const O = {
   DOOR_OPEN: 41,
   GATE: 42,
   PLANT: 43,
+  CHEST: 44,
 } as const;
 
 export interface ObjectDef {
@@ -126,6 +127,7 @@ export const OBJECTS: Record<number, ObjectDef> = {
   [O.DOOR_OPEN]: { name: 'puerta abierta', block: false, map: '#9b6b38', desc: 'Haz clic a su lado para cerrarla.' },
   [O.GATE]: { name: 'portón de la ciudad', block: false, sight: true, map: '#9a9aa0', desc: 'Vigilado por los guardias de Albor.' },
   [O.PLANT]: { name: 'maceta', block: true },
+  [O.CHEST]: { name: 'baúl', block: true, desc: 'Si la casa es tuya, haz clic para guardar o sacar cosas. Lo que guardas se comparte entre todas tus casas.' },
   [O.STAIRS_DOWN]: { name: 'escalera que baja', block: false, map: '#ffd23f', desc: 'Lleva a un nivel inferior.' },
   [O.STAIRS_UP]: { name: 'escalera que sube', block: false, map: '#ffd23f', desc: 'Lleva a un nivel superior.' },
   [O.FENCE]: { name: 'valla', block: true, map: '#7c5a30' },

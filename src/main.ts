@@ -10,7 +10,7 @@ import { isMuted, play, toggleMute } from './ui/audio';
 import { $, closeAllWins, closeMenu, getWin, closeWin } from './ui/dom';
 import { Panels } from './ui/panels';
 import {
-  banner, checkLoot, checkShop, deathScreen, endingScreen, openHelp, openLoot, openMap, openQuests, openShop, openSkills,
+  banner, checkDepot, checkLoot, checkShop, openDepot, deathScreen, endingScreen, openHelp, openLoot, openMap, openQuests, openShop, openSkills,
   openSpells, refreshLoot, titleScreen,
 } from './ui/windows';
 
@@ -174,6 +174,7 @@ async function boot() {
     if (c && c.kind === 'monster') return game.setTarget(p.target === c.id ? null : c.id);
     if (c && c.kind === 'npc') return game.talkTo(c.id);
     const o = game.map.o(t.x, t.y, p.z);
+    if (o === O.CHEST) return void game.openChest(t.x, t.y);
     if ((o === O.DOOR || o === O.DOOR_OPEN) && !c) {
       if (Math.max(Math.abs(t.x - p.x), Math.abs(t.y - p.y)) <= 1) return void game.toggleDoor(t.x, t.y);
       return void game.walkTo(t.x, t.y);
@@ -230,6 +231,9 @@ async function boot() {
         case 'inv':
           panels.forceInv();
           break;
+        case 'depot':
+          openDepot(game, panels);
+          break;
         case 'levelup':
           banner(`¡Nivel ${ev.level}!`);
           writeSave(game);
@@ -266,6 +270,7 @@ async function boot() {
       panels.refresh();
       checkLoot(game);
       checkShop(game);
+      checkDepot(game);
     }
     if (now - miniAt > 300) {
       miniAt = now;

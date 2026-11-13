@@ -17,6 +17,10 @@ Toma mecánicas del género (casillas, ataque automático cada 2 s, palabras cla
 
 - Plantas: 0 superficie, 1 y 2 subsuelo (`isUnderground`), 3 plantas altas de las casas (`UPPER_Z`). En la planta alta, donde no hay suelo (`G.VOID`) se dibuja la superficie oscurecida. Las escaleras de casa son `^` (planta baja) y `v` (planta alta) en la misma casilla.
 - Albor (`data/albor.ts`) se construye por piezas: casas de 9 × 7 con planta baja y alta; las del sur se usan volteadas.
+- `data/greenify.ts` convierte el empedrado de una plantilla en jardín y deja adoquines solo en los caminos (rutas rectas desde un punto central hasta puertas, portones, escaleras y NPC de la calle). Se aplica a Albor y Valcorona.
+- Casas en venta: la puerta `$` está cerrada con llave hasta que el jugador compra la casa (rol de NPC `houses`); `&` es el baúl. `registerHouses` recorre el interior de cada casa (con su planta alta) para medir su tamaño y precio. El baúl (`player.depot`) se comparte entre todas las casas.
+- La charla cotidiana está en `game/smalltalk.ts` (lógica) y `data/smalltalk.ts` (textos). Las preguntas tipo «¿dónde...?» o «¿quién es...?» tienen prioridad sobre las palabras clave del NPC; el resto de la charla solo responde si ninguna palabra clave encaja.
+- En los scripts de edición con Node, usa `s.replace(a, () => b)`: un `$` en el texto de reemplazo se interpreta como patrón especial.
 - Las puertas cerradas (`O.DOOR`) y el portón (`O.GATE`) son transitables a nivel de mapa (para la conectividad), pero `Game.free()` las bloquea: las puertas a todos hasta que se abren (`toggleDoor`) y el portón a todos salvo al jugador con la misión `ductos` terminada. El estado de las puertas vive en `map.obj` y no se guarda.
 - Los tejados (`map.roof`) cubren los suelos interiores (madera o baldosas) dentro de los pueblos y los muros que los rodean. No pongas madera (`_`, `h`, `o`...) en calles o plazas, o les saldrá tejado.
 - Las fronteras entre regiones (`ridge` en `genTerrain`) son crestas de roca o bosque cerrado: el mapa se recorre por caminos y pasos.

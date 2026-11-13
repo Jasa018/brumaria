@@ -1,4 +1,5 @@
 import { buildAlbor } from './albor';
+import { greenify } from './greenify';
 
 // Geografía de Brumaria: tamaño del mundo, pueblos, cuevas y zonas de criaturas.
 // El terreno se genera con una semilla fija, así que el mundo es siempre el mismo.
@@ -20,7 +21,8 @@ Leyenda de las plantillas:
   'N' yunque        'K' horno         'L' farol         '*' flores        'S' cartel
   'w' pozo          'D' escalera baja 'h' silla         'P' poste muelle  'Z' estatua
   'r' brasero       'M' montaña       '@' punto de reaparición del templo
-  '^' escalera a la planta alta  'v' escalera a la planta baja  'G' portón  'p' maceta
+  '^' escalera a la planta alta  'v' escalera a la planta baja  'G' portón  'p' maceta  'u' arbusto
+  '$' puerta de una casa en venta  '&' baúl de una casa
   '0'-'9' NPC (ver `npcs` de cada pueblo)
 */
 
@@ -40,14 +42,14 @@ const ALBOR = buildAlbor();
 export const TOWNS: TownDef[] = [
   {
     id: 'albor', name: 'Albor', x: 30, y: 100,
-    npcs: { '1': 'oraculo', '2': 'mirta', '3': 'hermana_lia', '4': 'teodoro', '5': 'brann', '6': 'capitan_rurik', '7': 'guardia_albor', '9': 'lena' },
+    npcs: { '0': 'lirio', '1': 'oraculo', '2': 'mirta', '3': 'hermana_lia', '4': 'teodoro', '5': 'brann', '6': 'capitan_rurik', '7': 'guardia_albor', '8': 'brom', '9': 'lena' },
     map: ALBOR.map,
     upper: ALBOR.upper,
   },
   {
     id: 'valcorona', name: 'Valcorona', x: 112, y: 64,
     npcs: { '1': 'elena', '2': 'rey_aldric', '3': 'bertran', '4': 'gorm', '5': 'ilsa', '6': 'ulric', '7': 'rosa', '8': 'selene', '9': 'tobias', '0': 'guardia' },
-    map: [
+    map: greenify([
       '......................==......................',
       '.#####################,,#####################.',
       '.#,,,,,,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,,,,,,,#.',
@@ -82,7 +84,7 @@ export const TOWNS: TownDef[] = [
       '.#,,,,,,,,,,,,,,,,,,,,0,,,,,,,,,,,,,,,,,,,,,#.',
       '.#####################,,#####################.',
       '......................==......................',
-    ],
+    ], [23, 16], 777),
   },
   {
     id: 'hondaforja', name: 'Hondaforja', x: 180, y: 20,
@@ -112,7 +114,7 @@ export const TOWNS: TownDef[] = [
   },
   {
     id: 'juncal', name: 'Juncal', x: 186, y: 108,
-    npcs: { '1': 'agata', '2': 'nilo', '3': 'yara', '4': 'mosca' },
+    npcs: { '1': 'agata', '2': 'nilo', '3': 'yara', '4': 'mosca', '5': 'ciro' },
     map: [
       '~~~mmmmmmmmmmmmmmmmmmmm~~~',
       '~~mWWWWWWWWmmmmWWWWWWWWm~~',
@@ -124,11 +126,11 @@ export const TOWNS: TownDef[] = [
       'mmHHHHHHHHHHHHHHHHHHHHHHmm',
       'HHHHLHHHHHHHH4HHHHHLHHHHmm',
       'HHHHHHHHHHHHHHHHHHHHHHHHmm',
-      'mmHHHHHHHHHHHHHHHHHHHHHHmm',
-      '~~mWWW+WWWWmmmmWWWW+WWWm~~',
+      'mmHHHHHHHHHHHHHHHHHH5HHHmm',
+      '~~mWWW+WWWWmmmmWWWW$WWWm~~',
       '~~mW______WmmmmW______Wm~~',
       '~~mW_2____WmmmmW_t__h_Wm~~',
-      '~~mW_cccx_WmmmmW_b____Wm~~',
+      '~~mW_cccx_WmmmmW_b___&Wm~~',
       '~~mWWWWWWWWmmmmWWWWWWWWm~~',
       '~~~mmmmmmmmmmmmmmmmmmmm~~~',
       '~~~~~~~mmmm~~~~~~~~~~~~~~~',

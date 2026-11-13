@@ -203,9 +203,23 @@ export class Renderer {
 
     // Tejados (como en los RPG clásicos: desaparecen al entrar en un edificio)
     if (z === 0 && !map.hasRoof(p.x, p.y)) {
+      // Junto a una puerta abierta se ve el interior de ese edificio
+      const hidden = new Set<number>();
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (map.o(p.x + dx, p.y + dy, 0) !== O.DOOR_OPEN) continue;
+          const stack = [[p.x + dx, p.y + dy]];
+          while (stack.length) {
+            const [cx, cy] = stack.pop()!;
+            const k = cy * map.W + cx;
+            if (hidden.has(k) || !map.hasRoof(cx, cy)) continue;
+            hidden.add(k);
+            stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+          }
+        }
       for (let y = y0; y <= y1; y++)
         for (let x = x0; x <= x1; x++) {
-          if (!map.hasRoof(x, y) || !game.isExplored(x, y, 0)) continue;
+          if (!map.hasRoof(x, y) || !game.isExplored(x, y, 0) || hidden.has(y * map.W + x)) continue;
           const mask = (map.hasRoof(x, y - 1) ? 1 : 0) | (map.hasRoof(x + 1, y) ? 2 : 0) | (map.hasRoof(x, y + 1) ? 4 : 0) | (map.hasRoof(x - 1, y) ? 8 : 0);
           ctx.drawImage(roofSprite(mask, (x * 7 + y * 3) % 3), sx(x) - 16, sy(y) - 16);
         }

@@ -5,6 +5,8 @@ import { SPELLS } from '../data/spells';
 import { TOWNS } from '../data/world';
 import { PLAYABLE_VOCS, VOCATIONS, type VocId } from '../data/vocations';
 import type { Game } from './game';
+import { isSmallTalkQuestion, smallTalk } from './smalltalk';
+import { UNKNOWN } from '../data/smalltalk';
 import type { Creature } from './types';
 
 const GREET = ['hola', 'hi', 'hello', 'buenas', 'saludos', 'buenos dias', 'buenas tardes', 'buenas noches'];
@@ -46,9 +48,14 @@ export function hear(game: Game, npc: Creature, text: string) {
     if (has(text, NO)) return say('Como quieras.');
   }
 
-  if (has(text, GREET)) return say(def.greet);
-  if (has(text, ['nombre', 'quien eres'])) return say(`Me llamo ${def.name}.`);
-  if (has(text, ['trabajo', 'oficio', 'que haces'])) return say(def.job);
+  if (has(text, GREET) && !isSmallTalkQuestion(text)) return say(def.greet);
+  if (has(text, ['nombre', 'quien eres', 'como te llamas'])) return say(`Me llamo ${def.name}.`);
+  if (has(text, ['trabajo', 'oficio', 'que haces', 'a que te dedicas'])) return say(def.job);
+  // Preguntas cotidianas ("¿dónde está...?", "¿quién es...?", "¿qué hora es?"): antes que las palabras clave
+  if (isSmallTalkQuestion(text)) {
+    const r = smallTalk(game, npc, text);
+    if (r) return say(r);
+  }
 
   if (def.shop && has(text, ['comerciar', 'tienda', 'comprar', 'vender', 'ofertas', 'trade', 'mercancia'])) {
     say('Echa un vistazo a mi mercancía.');
@@ -57,6 +64,7 @@ export function hear(game: Game, npc: Creature, text: string) {
   }
 
   const roles = def.roles ?? [];
+  if (roles.includes('houses') && has(text, ['casa', 'casas', 'propiedad', 'vivienda', 'mis casas', 'comprar casa'])) return housesTalk(game, npc, text);
   if (roles.includes('heal') && has(text, ['curar', 'curame', 'cura', 'sanar', 'curacion', 'heal'])) {
     if (p.hp >= p.maxHp) return say('No veo heridas en ti. Vuelve si las tienes.');
     p.hp = p.maxHp;
@@ -119,8 +127,34 @@ export function hear(game: Game, npc: Creature, text: string) {
   if (def.keywords) {
     for (const [k, v] of Object.entries(def.keywords)) if (has(text, [norm(k)])) return say(v);
   }
-  if (roles.includes('guard')) return say(def.greet);
-  say('¿Eh? No te entiendo. Pregúntame por mi {trabajo}.');
+  if (roles.includes('guard') && has(text, ['salir', 'pasar', 'abrir', 'abre', 'porton'])) return say(def.greet);
+  say(smallTalk(game, npc, text) ?? UNKNOWN[Math.floor(Math.random() * UNKNOWN.length)]);
+}
+
+function housesTalk(game: Game, npc: Creature, text: string) {
+  const p = game.player;
+  const def = npc.npc!;
+  const say = (s: string) => game.npcSay(npc, s);
+  const houses = game.map.houses;
+  if (has(text, ['mis casas'])) {
+    const mine = houses.filter((h) => game.ownsHouse(h.id));
+    return say(mine.length ? `Tienes a tu nombre: ${mine.map((h) => h.name).join(', ')}.` : 'Aún no tienes ninguna casa a tu nombre.');
+  }
+  // ¿Ha dicho una casa concreta? ("casa 3 de albor", o "casa 3" en el pueblo de este NPC)
+  const num = /casa (\d+)/.exec(text)?.[1];
+  if (num) {
+    const townId = TOWNS.find((t) => text.includes(norm(t.name).split(' ').pop()!))?.id ?? def.town;
+    const h = houses.find((hh) => hh.town === townId && hh.id === `${townId}-${num}`);
+    if (!h) return say('No tengo registrada esa casa.');
+    if (game.ownsHouse(h.id)) return say(`La ${h.name} ya es tuya.`);
+    npc.pending = { kind: 'house', house: h.id, price: h.price };
+    const floors = h.size > 40 ? 'de dos plantas' : 'de una planta';
+    return say(`La ${h.name} es ${floors}, con baúl propio para guardar tus cosas. Cuesta ${h.price} de oro. ¿La compras?`);
+  }
+  const free = houses.filter((h) => !game.ownsHouse(h.id));
+  if (!free.length) return say('Ya no me quedan casas en venta.');
+  const list = free.map((h) => `{${h.name}} (${h.price} oro)`).join(', ');
+  return say(`Tengo en venta: ${list}. Lo que guardes en el baúl de una casa lo tendrás en todas las tuyas. Tienes ${p.gold} de oro.`);
 }
 
 function questTalk(game: Game, npc: Creature) {
@@ -208,6 +242,12 @@ function resolve(game: Game, npc: Creature, pending: NonNullable<Creature['pendi
       game.sound('quest');
       game.emit({ t: 'inv' });
       return say(`Ya conoces ${s.name}. Úsalo con sabiduría.`);
+    }
+    case 'house': {
+      if (p.gold < pending.price) return say(`No tienes suficiente oro. La casa cuesta ${pending.price} y llevas ${p.gold}.`);
+      if (!game.buyHouse(pending.house)) return say('Algo no cuadra con los papeles. Prueba otra vez.');
+      game.emit({ t: 'inv' });
+      return say('¡Trato hecho! Aquí tienes la llave. Que la disfrutes.');
     }
   }
 }

@@ -2,7 +2,7 @@
 // Las palabras entre {llaves} se resaltan en el chat como sugerencias.
 import type { Look } from './monsters';
 
-export type NpcRole = 'heal' | 'home' | 'oracle' | 'spells' | 'travel' | 'guard';
+export type NpcRole = 'heal' | 'home' | 'oracle' | 'spells' | 'travel' | 'guard' | 'houses';
 
 export interface NpcDef {
   id: string;
@@ -72,11 +72,11 @@ export const NPC_LIST: NpcDef[] = [
     },
   },
   {
-    id: 'teodoro', name: 'Anciano Teodoro', town: 'albor',
+    id: 'teodoro', name: 'Anciano Teodoro', town: 'albor', roles: ['houses'],
     look: human('#5a3fa0', '#3a2a1a', '#e8e8e8'),
-    greet: 'Ah, un rostro nuevo. Siéntate, siéntate. ¿Buscas una {misión}?',
+    greet: 'Ah, un rostro nuevo. Siéntate, siéntate. ¿Buscas una {misión}? También llevo el registro de {casas} en venta.',
     bye: 'Cuídate, muchacho.',
-    job: 'Soy el alcalde de Albor. O lo que queda de él.',
+    job: 'Soy el alcalde de Albor. También vendo las {casas} vacías de la ciudad.',
     keywords: {
       albor: 'Albor es una ciudad pequeña y amurallada, pero aquí empiezan todos los héroes de Brumaria.',
       ratas: 'Malditas ratas. Infestan los {Ductos}, bajo nuestros pies.',
@@ -131,6 +131,33 @@ export const NPC_LIST: NpcDef[] = [
       rurik: 'El capitán es serio, pero justo. Si le traes lo que pide, te dejará salir.',
     },
     idle: ['¿Dónde habré dejado la lana azul...?'],
+  },
+
+  {
+    id: 'brom', name: 'Brom el Tabernero', town: 'albor',
+    look: human('#8a5a2b', '#3a2a1a', '#c96a3a'),
+    greet: '¡Bienvenido a La Rata Borracha! Siéntate donde quieras. ¿Te pongo algo? Di {comerciar}.',
+    bye: '¡Vuelve cuando tengas sed!',
+    job: 'Llevo la taberna más famosa de Albor. Bueno, la única.',
+    keywords: {
+      taberna: 'La Rata Borracha. El nombre se lo puso mi abuelo, después de una noche muy larga.',
+      cerveza: 'La mejor de la ciudad. La fermento yo mismo en el sótano... lejos de los Ductos, tranquilo.',
+      lirio: 'Lirio toca aquí cada noche a cambio de cerveza. Un buen trato para los dos.',
+    },
+    shop: { sells: [['cerveza', 3], ['pan', 3], ['queso', 4], ['jamon', 8]], buys: ['carne', 'jamon', 'queso', 'cola_rata', 'piel_serpiente'] },
+    idle: ['¡Otra ronda!', '¿Alguien ha visto mi trapo?', 'Hoy la cerveza está mejor que nunca.'],
+  },
+  {
+    id: 'lirio', name: 'Lirio el Bardo', town: 'albor',
+    look: human('#3e8a6a', '#c9a24a', '#f2d14c', { hood: true }),
+    greet: '¡Un público nuevo! Siéntate, que te canto una {canción} o te cuento una {historia}.',
+    bye: 'Que tus pasos rimen con tu suerte.',
+    job: 'Canto canciones y cuento historias a cambio de cerveza.',
+    keywords: {
+      cancion: '♪ Bajo la plaza duerme un rey, de cola larga y sin ley; quien le quite la corona, cruzará la puerta sola... ♪',
+      historia: 'Dicen que antes de Valcorona hubo un reino que ardió en una sola noche. Un wyrm de ceniza dormía bajo las montañas... y dicen que despierta.',
+    },
+    idle: ['♪ La la laaa... ♪', '¿Alguien conoce una rima para «Rurik»?', '♪ Albor, Albor, de piedra y de flor... ♪'],
   },
 
   // ======================= VALCORONA =======================
@@ -319,6 +346,13 @@ export const NPC_LIST: NpcDef[] = [
     bye: 'Que la niebla no te pierda.',
     job: 'Curo a los pescadores y cazadores de Juncal.',
     keywords: { gruta: 'La Gruta Inundada está al sureste del pueblo. De ahí salen los hombres lagarto.' },
+  },
+  {
+    id: 'ciro', name: 'Escribano Ciro', town: 'juncal', roles: ['houses'],
+    look: human('#5a4a3a', '#efe6d6', '#8a6a4a'),
+    greet: 'Buenas. Soy el escribano de Juncal. Si quieres una casa propia, pregúntame por las {casas} en venta.',
+    bye: 'Que tus papeles estén siempre en orden.',
+    job: 'Llevo el registro de las {casas} de Brumaria.',
   },
   {
     id: 'mosca', name: 'Mosca la Barquera', town: 'juncal', roles: ['travel'],

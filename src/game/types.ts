@@ -51,7 +51,8 @@ export type Pending =
   | { kind: 'quest'; quest: string }
   | { kind: 'vocation'; voc: VocId }
   | { kind: 'travel'; town: string; price: number }
-  | { kind: 'learn'; spell: string; price: number };
+  | { kind: 'learn'; spell: string; price: number }
+  | { kind: 'house'; house: string; price: number };
 
 export interface Skill {
   lvl: number;
@@ -87,6 +88,10 @@ export interface PlayerData {
   worldTime: number;
   stats: { kills: number; deaths: number; playMs: number };
   ended?: boolean;
+  /** Casas compradas (ids de map.houses). */
+  houses?: string[];
+  /** Baúl compartido entre todas las casas. */
+  depot?: Stack[];
 }
 
 export interface Corpse {
@@ -117,7 +122,8 @@ export type GameEvent =
   | { t: 'area'; name: string }
   | { t: 'sound'; s: SoundName }
   | { t: 'ending' }
-  | { t: 'inv' };
+  | { t: 'inv' }
+  | { t: 'depot' };
 
 export type SoundName = 'hit' | 'miss' | 'hurt' | 'kill' | 'level' | 'spell' | 'heal' | 'coin' | 'step' | 'death' | 'quest' | 'eat' | 'stairs' | 'bow' | 'door';
 

@@ -130,6 +130,16 @@ function drawObject(o: number, v: number, f: number, flag: boolean): HTMLCanvasE
       rect(c, 2, 1, 1, 13, '#a8743c');
       px(c, 4, 7, '#d9b44a');
       break;
+    case O.CHEST:
+      rect(c, 2, 6, 12, 8, '#7a4e24');
+      rect(c, 2, 4, 12, 3, '#9a6a35');
+      rect(c, 2, 4, 12, 1, '#b8854a');
+      rect(c, 2, 9, 12, 1, '#3a3a40');
+      rect(c, 2, 5, 1, 9, '#3a3a40');
+      rect(c, 13, 5, 1, 9, '#3a3a40');
+      rect(c, 7, 8, 2, 3, '#d9b44a');
+      px(c, 7, 8, '#fff0a0');
+      break;
     case O.PLANT:
       rect(c, 5, 10, 6, 5, '#9a5a2b');
       rect(c, 5, 10, 6, 1, '#b8743c');
