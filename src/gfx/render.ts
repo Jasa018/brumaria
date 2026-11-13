@@ -3,7 +3,11 @@ import { G, GROUNDS, O, OBJECTS } from '../data/tiles';
 import type { Missile } from '../data/monsters';
 import { VIEW_H, VIEW_W, type Game } from '../game/game';
 import type { Creature, FxKind, GameEvent } from '../game/types';
-import { TILE, corpseSprite, creatureSprite, groundSprite, objectHeight, objectSprite, rockSprite } from './sprites';
+import { GROUND_PRIO, TILE, corpseSprite, creatureSprite, edgeSprite, groundSprite, objectOffset, objectSprite, rockBlock, rockTop } from './sprites';
+
+/** Los personajes se dibujan elevados hacia arriba a la izquierda, como si tuvieran altura. */
+const DISP = 6;
+const DIRS4 = [[0, -1], [1, 0], [0, 1], [-1, 0]] as const;
 
 const S = 2; // escala del canvas respecto a los píxeles del mundo
 const COLS = VIEW_W * 2 + 1;
@@ -118,10 +122,17 @@ export class Renderer {
       for (let x = x0; x <= x1; x++) {
         if (!map.inBounds(x, y, z) || !game.isExplored(x, y, z)) continue;
         const g = map.g(x, y, z);
-        if (g === G.ROCK) {
-          const face = GROUNDS[map.g(x, y + 1, z)]?.walk ?? false;
-          ctx.drawImage(rockSprite(map.style(x, y, z), face, x, y), sx(x), sy(y));
-        } else ctx.drawImage(groundSprite(g, x, y, z, frame), sx(x), sy(y));
+        if (g === G.ROCK) ctx.drawImage(rockTop(map.style(x, y, z), x, y), sx(x), sy(y));
+        else {
+          ctx.drawImage(groundSprite(g, x, y, z, frame), sx(x), sy(y));
+          // Bordes: el suelo vecino de más prioridad se derrama sobre esta casilla
+          const pr = GROUND_PRIO[g] ?? -1;
+          if (pr >= 0)
+            DIRS4.forEach(([dx, dy], dir) => {
+              const ng = map.g(x + dx, y + dy, z);
+              if ((GROUND_PRIO[ng] ?? -1) > pr) ctx.drawImage(edgeSprite(groundSprite(ng, 0, 0, 0, 0), ng, dir, x, y), sx(x), sy(y));
+            });
+        }
         const o = map.o(x, y, z);
         if (o && FLAT.has(o)) ctx.drawImage(objectSprite(o, x, y, frame), sx(x), sy(y));
       }
@@ -147,11 +158,15 @@ export class Renderer {
     for (let y = y0; y <= y1; y++) {
       for (const cp of game.corpses) if (cp.z === z && cp.y === y && cp.x >= x0 && cp.x <= x1) ctx.drawImage(corpseSprite(cp.look), sx(cp.x), sy(cp.y));
       for (let x = x0; x <= x1; x++) {
+        if (!game.isExplored(x, y, z)) continue;
+        // Roca con caras visibles: bloque con altura
+        if (map.g(x, y, z) === G.ROCK && (GROUNDS[map.g(x, y + 1, z)]?.walk || GROUNDS[map.g(x + 1, y, z)]?.walk || GROUNDS[map.g(x + 1, y + 1, z)]?.walk))
+          ctx.drawImage(rockBlock(map.style(x, y, z), x, y), sx(x) - 16, sy(y) - 16);
         const o = map.o(x, y, z);
-        if (!o || FLAT.has(o) || !game.isExplored(x, y, z)) continue;
-        const spr = objectSprite(o, x, y, frame);
-        const h = objectHeight(o);
-        ctx.drawImage(spr, sx(x), sy(y) - (h - 1) * TILE);
+        if (!o || FLAT.has(o)) continue;
+        const spr = objectSprite(o, x, y, frame, o === O.MOUNTAIN && map.g(x, y, z) === G.SNOW);
+        const [ox2, oy2] = objectOffset(o);
+        ctx.drawImage(spr, sx(x) + ox2, sy(y) + oy2);
       }
       for (const c of byRow.get(y) ?? []) {
         const [cx, cy, t] = this.interp(c, time);
@@ -163,12 +178,12 @@ export class Renderer {
         const spr = creatureSprite(c.look, c.dir, f);
         const scale = c.look.scale ?? 1;
         const w = TILE * scale;
-        const dx = sx(cx) + (TILE - w) / 2;
-        const dy = sy(cy) + TILE - w;
+        const dx = sx(cx) + (TILE - w) / 2 - DISP;
+        const dy = sy(cy) + TILE - w - DISP;
         if (c === target) {
           ctx.strokeStyle = '#ff2020';
           ctx.lineWidth = 1.5;
-          ctx.strokeRect(sx(cx) + 1, sy(cy) + 1, TILE - 2, TILE - 2);
+          ctx.strokeRect(sx(cx) + 1 - DISP, sy(cy) + 1 - DISP, TILE - 2, TILE - 2);
         }
         ctx.drawImage(spr, dx, dy, w, w);
       }
@@ -242,8 +257,8 @@ export class Renderer {
       for (const c of list) {
         const [cx, cy] = this.interp(c, time);
         const scale = c.look.scale ?? 1;
-        const topY = sy(cy) + TILE - TILE * scale;
-        const midX = sx(cx) + TILE / 2;
+        const topY = sy(cy) + TILE - TILE * scale - DISP;
+        const midX = sx(cx) + TILE / 2 - DISP;
         if (c.kind !== 'npc') {
           const pct = Math.max(0, c.hp / c.maxHp);
           const col = pct > 0.6 ? '#3fd040' : pct > 0.3 ? '#e0c030' : pct > 0.1 ? '#e06020' : '#c01010';

@@ -2,8 +2,10 @@
 import { G, O } from '../data/tiles';
 import type { ItemDef } from '../data/items';
 import type { Look } from '../data/monsters';
-import type { Style } from '../game/world';
 import { tileHash } from '../game/rng';
+import { boulderSprite, bushSprite, deadTree, drawGround, finish, humanoid, mountainBlock, pineSprite, treeSprite, wallBlock } from './art';
+
+export { edgeSprite, GROUND_PRIO, rockBlock, rockTop } from './art';
 
 export const TILE = 32;
 const P = 2; // tamaño de un píxel lógico
@@ -51,22 +53,7 @@ function shade(hex: string, f: number): string {
   return `rgb(${r | 0},${g | 0},${b | 0})`;
 }
 
-/** Pseudo-aleatorio estable para texturas. */
-function prng(seed: number) {
-  let s = seed >>> 0 || 1;
-  return () => {
-    s ^= s << 13;
-    s ^= s >>> 17;
-    s ^= s << 5;
-    return ((s >>> 0) % 10000) / 10000;
-  };
-}
 
-function speckle(c: Ctx, base: string, cols: string[], density: number, seed: number) {
-  rect(c, 0, 0, 16, 16, base);
-  const r = prng(seed);
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (r() < density) px(c, x, y, cols[Math.floor(r() * cols.length)]);
-}
 
 // ===================================================================
 //                              Suelos
@@ -86,253 +73,51 @@ export function groundSprite(g: number, x: number, y: number, z: number, frame: 
   return cv;
 }
 
-function drawGround(g: number, v: number, f: number): HTMLCanvasElement {
-  const [cv, c] = canvas(TILE, TILE);
-  const seed = g * 97 + v * 13 + 1;
-  switch (g) {
-    case G.GRASS:
-      speckle(c, '#3f8a35', ['#4c9c40', '#367a2d', '#5aad4a'], 0.18, seed);
-      if (v === 1) for (const [a, b] of [[3, 4], [11, 9], [6, 12]]) px(c, a, b, '#6cc055');
-      break;
-    case G.FOREST:
-      speckle(c, '#2d6528', ['#26581f', '#357530', '#3c5a22', '#4a6a2a'], 0.25, seed);
-      break;
-    case G.DIRT:
-      speckle(c, '#7a5a34', ['#6b4e2c', '#8a6a42', '#5e4426'], 0.22, seed);
-      break;
-    case G.ROAD:
-      speckle(c, '#a58b5c', ['#97804f', '#b39a6a', '#8a7448'], 0.2, seed);
-      for (const [a, b] of [[2, 3], [9, 7], [13, 12], [5, 11]]) px(c, (a + v * 3) % 16, b, '#c4ad80');
-      break;
-    case G.SAND:
-      speckle(c, '#d6c48a', ['#c9b67a', '#e3d39e', '#bfae74'], 0.16, seed);
-      break;
-    case G.COBBLE: {
-      rect(c, 0, 0, 16, 16, '#6f6f74');
-      const r = prng(seed);
-      for (let by = 0; by < 4; by++)
-        for (let bx = 0; bx < 4; bx++) {
-          const ox = by % 2 ? 2 : 0;
-          const col = ['#8d8d92', '#9a9aa0', '#858589'][Math.floor(r() * 3)];
-          rect(c, (bx * 4 + ox) % 16, by * 4, 3, 3, col);
-          px(c, (bx * 4 + ox) % 16, by * 4, '#a8a8ae');
-        }
-      break;
-    }
-    case G.WOOD:
-      rect(c, 0, 0, 16, 16, '#8a5a2b');
-      for (let y = 0; y < 16; y += 4) {
-        rect(c, 0, y + 3, 16, 1, '#6b4420');
-        px(c, (y * 3 + v * 5) % 16, y + 1, '#7a4e24');
-        rect(c, (y * 5 + 7) % 16, y, 1, 3, '#6b4420');
-      }
-      break;
-    case G.TILE:
-      for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) rect(c, x * 8, y * 8, 8, 8, (x + y) % 2 ? '#a8a090' : '#bdb6a6');
-      rect(c, 0, 0, 16, 1, '#c9c2b2');
-      break;
-    case G.CAVE:
-      speckle(c, '#5b4c3e', ['#4e4034', '#665646', '#544637'], 0.25, seed);
-      break;
-    case G.SWAMP:
-      speckle(c, '#4c5e2e', ['#3e4f25', '#56693a', '#3a4a30'], 0.22, seed);
-      if (v < 2) {
-        rect(c, 4 + v * 4, 6, 5, 3, '#3a4a3a');
-        rect(c, 5 + v * 4, 7, 3, 1, '#4a6a5a');
-      }
-      break;
-    case G.SNOW:
-      speckle(c, '#e6eef2', ['#d4e0e8', '#ffffff', '#c9d8e2'], 0.15, seed);
-      break;
-    case G.MUD:
-      speckle(c, '#5a4628', ['#4e3c22', '#66512f', '#3f3220'], 0.25, seed);
-      if (v === 2) rect(c, 6, 8, 4, 2, '#3f3a30');
-      break;
-    case G.BRIDGE:
-      rect(c, 0, 0, 16, 16, '#9a6a35');
-      for (let x = 0; x < 16; x += 4) rect(c, x + 3, 0, 1, 16, '#6e4a22');
-      rect(c, 0, 0, 16, 1, '#5a3a1a');
-      rect(c, 0, 15, 16, 1, '#5a3a1a');
-      break;
-    case G.WATER:
-    case G.SEA: {
-      const deep = g === G.SEA;
-      rect(c, 0, 0, 16, 16, deep ? '#1d3b6b' : '#2f5e9e');
-      const r = prng(seed);
-      for (let i = 0; i < 6; i++) {
-        const wx = Math.floor(r() * 16);
-        const wy = Math.floor(r() * 16);
-        const x = (wx + f) % 16;
-        rect(c, x, wy, 3, 1, deep ? '#2c5288' : '#4a7ec0');
-        if (r() < 0.4) px(c, (x + 1) % 16, (wy + 15) % 16, deep ? '#3a66a0' : '#7fb0e8');
-      }
-      break;
-    }
-    case G.LAVA: {
-      rect(c, 0, 0, 16, 16, '#c0390c');
-      const r = prng(seed);
-      for (let i = 0; i < 10; i++) {
-        const x = (Math.floor(r() * 16) + f) % 16;
-        const y = Math.floor(r() * 16);
-        rect(c, x, y, 2, 1, r() < 0.5 ? '#ff8a20' : '#ffd040');
-      }
-      break;
-    }
-    default:
-      rect(c, 0, 0, 16, 16, '#000');
-  }
-  return cv;
-}
-
-// ------------- Roca (paredes de cueva), según el estilo de la zona -------------
-
-const ROCK_COLORS: Record<Style, [string, string, string]> = {
-  surface: ['#2a2420', '#3a3028', '#4a3e32'],
-  cave: ['#2a2420', '#3d332a', '#54473a'],
-  crypt: ['#25252c', '#3e3e48', '#5a5a66'],
-  mine: ['#2c2218', '#43341f', '#5e4a2e'],
-  lava: ['#1c1414', '#2e1e1a', '#4a2a20'],
-  flooded: ['#1c2630', '#2a3a48', '#3e5466'],
-};
-
-export function rockSprite(style: Style, face: boolean, x: number, y: number): HTMLCanvasElement {
-  const v = Math.floor(tileHash(x, y, 9) * 3);
-  const key = `rock:${style}:${face ? 1 : 0}:${v}`;
-  let cv = groundCache.get(key);
-  if (cv) return cv;
-  [cv] = canvas(TILE, TILE);
-  const c = cv.getContext('2d')!;
-  const [dark, mid, light] = ROCK_COLORS[style];
-  speckle(c, dark, [mid, shade(dark, -0.3)], 0.2, 77 + v);
-  if (face) {
-    if (style === 'crypt') {
-      rect(c, 0, 6, 16, 10, mid);
-      for (let row = 0; row < 3; row++) {
-        rect(c, 0, 6 + row * 3 + 2, 16, 1, dark);
-        for (let b = 0; b < 4; b++) rect(c, b * 4 + (row % 2) * 2, 6 + row * 3, 1, 2, dark);
-      }
-      rect(c, 0, 6, 16, 1, light);
-    } else {
-      rect(c, 0, 7, 16, 9, mid);
-      const r = prng(31 + v);
-      for (let i = 0; i < 14; i++) px(c, Math.floor(r() * 16), 8 + Math.floor(r() * 8), r() < 0.5 ? light : dark);
-      rect(c, 0, 7, 16, 1, light);
-      if (style === 'mine' && v === 0) {
-        rect(c, 2, 6, 2, 10, '#7a5530');
-        rect(c, 12, 6, 2, 10, '#7a5530');
-        rect(c, 1, 6, 14, 2, '#8a6338');
-      }
-      if (style === 'lava' && v === 1) for (let i = 0; i < 5; i++) px(c, 4 + i * 2, 10 + (i % 2), '#ff5a1a');
-    }
-  }
-  groundCache.set(key, cv);
-  return cv;
-}
-
 // ===================================================================
 //                              Objetos
 // ===================================================================
 
 const objCache = new Map<string, HTMLCanvasElement>();
 
-/** Altura en casillas del dibujo del objeto (se dibuja hacia arriba desde su casilla). */
-export function objectHeight(o: number): number {
-  return o === O.TREE || o === O.PINE || o === O.SNOWPINE || o === O.DEADTREE || o === O.MOUNTAIN ? 2 : o === O.WALL || o === O.WOODWALL || o === O.LAMP || o === O.STATUE || o === O.BOOKSHELF ? 1.5 : 1;
+/** Desplazamiento del dibujo respecto a la esquina de su casilla (la altura se proyecta arriba a la izquierda). */
+export function objectOffset(o: number): [number, number] {
+  if (o === O.WALL || o === O.WOODWALL) return [-16, -16];
+  if (o === O.MOUNTAIN) return [-24, -24];
+  if (o === O.TREE || o === O.PINE || o === O.SNOWPINE || o === O.DEADTREE) return [-32, -32];
+  if (o === O.LAMP || o === O.STATUE || o === O.BOOKSHELF) return [0, -16];
+  return [0, 0];
 }
 
-export function objectSprite(o: number, x: number, y: number, frame: number): HTMLCanvasElement {
+export function objectSprite(o: number, x: number, y: number, frame: number, snow = false): HTMLCanvasElement {
   const v = Math.floor(tileHash(x, y, 3) * 3);
   const anim = o === O.BRAZIER || o === O.FOUNTAIN || o === O.FURNACE || o === O.CRYSTAL || o === O.LAMP;
-  const key = `${o}:${v}:${anim ? frame % 4 : 0}`;
+  const key = `${o}:${v}:${anim ? frame % 4 : 0}:${snow ? 1 : 0}`;
   let cv = objCache.get(key);
   if (!cv) {
-    cv = drawObject(o, v, anim ? frame % 4 : 0);
+    cv = drawObject(o, v, anim ? frame % 4 : 0, snow);
     objCache.set(key, cv);
   }
   return cv;
 }
 
-function drawObject(o: number, v: number, f: number): HTMLCanvasElement {
-  const h = objectHeight(o);
+function drawObject(o: number, v: number, f: number, snow: boolean): HTMLCanvasElement {
+  switch (o) {
+    case O.TREE: return treeSprite(v);
+    case O.PINE: return pineSprite(v, false);
+    case O.SNOWPINE: return pineSprite(v, true);
+    case O.DEADTREE: return deadTree(v);
+    case O.MOUNTAIN: return mountainBlock(v, snow);
+    case O.WALL: return wallBlock(false, v);
+    case O.WOODWALL: return wallBlock(true, v);
+    case O.BUSH: return bushSprite(v);
+    case O.BOULDER: return boulderSprite(v);
+  }
+  const h = o === O.LAMP || o === O.STATUE || o === O.BOOKSHELF ? 1.5 : 1;
   const H = Math.round(16 * h);
   const [cv, c] = canvas(TILE, H * P);
   const base = H - 16; // fila lógica donde empieza la casilla
   const at = (yy: number) => base + yy;
   switch (o) {
-    case O.TREE: {
-      rect(c, 7, at(9), 3, 7, '#5e3c1c');
-      px(c, 7, at(10), '#4a2e14');
-      const leaf = ['#2f7a2a', '#2a6e26', '#357f2e'][v];
-      disc(c, 8, at(3), 7, shade(leaf, -0.25));
-      disc(c, 8, at(2), 6, leaf);
-      disc(c, 6, at(0), 3, shade(leaf, 0.15));
-      for (const [a, b] of [[4, -1], [10, 2], [7, 5], [12, -2]]) px(c, a, at(b), shade(leaf, 0.3));
-      break;
-    }
-    case O.PINE:
-    case O.SNOWPINE: {
-      const snow = o === O.SNOWPINE;
-      rect(c, 7, at(12), 2, 4, '#5e3c1c');
-      const col = snow ? '#2e5a3a' : ['#1f5a2a', '#1c5226', '#22622e'][v];
-      for (let i = 0; i < 4; i++) {
-        const w = 3 + i * 2;
-        const yy = at(-12 + i * 6);
-        for (let r = 0; r < 6; r++) {
-          const ww = Math.min(w, 1 + r * 2);
-          rect(c, 8 - ww / 2, yy + r, ww, 1, r < 2 ? shade(col, 0.15) : col);
-          if (snow && r < 2) rect(c, 8 - ww / 2, yy + r, ww, 1, '#e8f0f4');
-        }
-      }
-      break;
-    }
-    case O.DEADTREE:
-      rect(c, 7, at(-2), 2, 18, '#4a3626');
-      rect(c, 4, at(1), 4, 1, '#4a3626');
-      rect(c, 3, at(-1), 1, 2, '#4a3626');
-      rect(c, 9, at(-4), 4, 1, '#4a3626');
-      rect(c, 12, at(-6), 1, 2, '#4a3626');
-      rect(c, 9, at(4), 3, 1, '#4a3626');
-      break;
-    case O.MOUNTAIN: {
-      const col = ['#6b6158', '#615850', '#736a60'][v];
-      for (let r = 0; r < 30; r++) {
-        const w = Math.min(16, 2 + r);
-        rect(c, 8 - w / 2, at(-14) + r, w, 1, r < 6 ? '#e8eef0' : r % 5 === 0 ? shade(col, -0.15) : col);
-      }
-      rect(c, 8, at(-8), 6, 20, shade(col, -0.2));
-      for (let r = 0; r < 10; r++) px(c, 9 + (r % 3), at(-6) + r * 2, shade(col, -0.35));
-      break;
-    }
-    case O.BUSH:
-      disc(c, 8, at(10), 5, '#2a6e26');
-      disc(c, 7, at(9), 4, '#36852f');
-      px(c, 5, at(8), '#4caf50');
-      if (v === 0) {
-        px(c, 9, at(9), '#d63c3c');
-        px(c, 6, at(11), '#d63c3c');
-      }
-      break;
-    case O.BOULDER:
-      disc(c, 8, at(10), 5, '#5e5a55');
-      disc(c, 7, at(9), 4, '#7a756e');
-      px(c, 5, at(7), '#9a958e');
-      break;
-    case O.WALL:
-    case O.WOODWALL: {
-      const wood = o === O.WOODWALL;
-      const top = wood ? '#6e4520' : '#7d7d88';
-      const face = wood ? '#8a5a2b' : '#5f5f6a';
-      rect(c, 0, at(-8), 16, 8, top);
-      rect(c, 0, at(-8), 16, 1, shade(top, 0.25));
-      rect(c, 0, at(0), 16, 16, face);
-      if (wood) for (let x = 0; x < 16; x += 4) rect(c, x, at(0), 1, 16, '#6b4420');
-      else
-        for (let row = 0; row < 4; row++) {
-          rect(c, 0, at(row * 4 + 3), 16, 1, '#4a4a54');
-          for (let b = 0; b < 3; b++) rect(c, b * 6 + (row % 2) * 3, at(row * 4), 1, 3, '#4a4a54');
-        }
-      break;
-    }
     case O.DOOR:
       rect(c, 2, 0, 12, 16, '#3a2410');
       rect(c, 3, 1, 10, 15, '#8a5a2b');
@@ -529,7 +314,7 @@ function drawObject(o: number, v: number, f: number): HTMLCanvasElement {
       for (const [a, b] of [[3, 10], [8, 12], [11, 8], [6, 7]]) rect(c, a, b, 2 + (a % 2), 2, '#6f6a64');
       break;
   }
-  return cv;
+  return finish(cv);
 }
 
 // ===================================================================
@@ -556,9 +341,10 @@ function drawCreature(L: Look, dir: number, f: number): HTMLCanvasElement {
     c.scale(-1, 1);
   }
   const side = dir === 1 || dir === 3;
-  // sombra
-  c.fillStyle = 'rgba(0,0,0,0.25)';
-  c.fillRect(8, 28, 16, 3);
+  if (L.body !== 'humanoid') {
+    c.fillStyle = 'rgba(0,0,0,0.25)';
+    c.fillRect(8, 28, 16, 3);
+  }
   switch (L.body) {
     case 'humanoid':
       humanoid(c, L, dir, f);
@@ -695,83 +481,7 @@ function drawCreature(L: Look, dir: number, f: number): HTMLCanvasElement {
       break;
     }
   }
-  return cv;
-}
-
-function humanoid(c: Ctx, L: Look, dir: number, f: number) {
-  const skin = L.skin ?? '#e0b089';
-  const hair = L.hair ?? '#3a2a1a';
-  const side = dir === 1 || dir === 3;
-  const back = dir === 2;
-  // piernas
-  const lA = f === 1 ? 1 : 0;
-  const lB = f === 2 ? 1 : 0;
-  if (side) {
-    rect(c, 6 + lA, 12, 2, 3 - lB, L.c2);
-    rect(c, 8 - lB, 12, 2, 3 - lA, shade(L.c2, -0.2));
-    rect(c, 6 + lA, 15 - lB, 2, 1, '#2a1a10');
-  } else {
-    rect(c, 5, 12, 2, 3 - lA, L.c2);
-    rect(c, 9, 12, 2, 3 - lB, L.c2);
-    rect(c, 5, 15 - lA, 2, 1, '#2a1a10');
-    rect(c, 9, 15 - lB, 2, 1, '#2a1a10');
-  }
-  // cuerpo
-  rect(c, 4, 7, 8, 5, L.c1);
-  rect(c, 4, 11, 8, 1, shade(L.c1, -0.25));
-  if (!side && !back) rect(c, 7, 7, 2, 4, shade(L.c1, 0.15));
-  // brazos
-  if (side) rect(c, 7, 8, 2, 4, shade(L.c1, -0.15));
-  else {
-    rect(c, 3, 7, 1, 4, shade(L.c1, -0.15));
-    rect(c, 12, 7, 1, 4, shade(L.c1, -0.15));
-    px(c, 3, 11, skin);
-    px(c, 12, 11, skin);
-  }
-  // cabeza
-  rect(c, 5, 2, 6, 5, skin);
-  if (L.helmet) {
-    rect(c, 4, 1, 8, 3, '#9aa0a6');
-    rect(c, 4, 1, 8, 1, '#cfd6dc');
-  } else if (L.hood) {
-    rect(c, 4, 1, 8, 3, L.c1);
-    rect(c, 4, 3, 1, 4, L.c1);
-    rect(c, 11, 3, 1, 4, L.c1);
-    if (back) rect(c, 5, 2, 6, 5, L.c1);
-  } else {
-    rect(c, 5, 1, 6, 2, hair);
-    if (back) rect(c, 5, 1, 6, 5, hair);
-    else if (side) rect(c, 5, 1, 3, 4, hair);
-  }
-  if (!back) {
-    if (side) px(c, 9, 4, '#1a1010');
-    else {
-      px(c, 6, 4, '#1a1010');
-      px(c, 9, 4, '#1a1010');
-    }
-  }
-  // arma
-  const w = L.weapon ?? 'none';
-  const hx = side ? 9 : 12;
-  if (w === 'sword') {
-    rect(c, hx, 4, 1, 7, '#d7dde2');
-    rect(c, hx - 1, 10, 3, 1, '#7a5530');
-  } else if (w === 'axe') {
-    rect(c, hx, 4, 1, 8, '#6b4a2a');
-    rect(c, hx + 1, 4, 2, 3, '#b9bec3');
-  } else if (w === 'club') {
-    rect(c, hx, 5, 1, 7, '#6b4a2a');
-    rect(c, hx - 1, 3, 3, 3, '#5a3a1a');
-  } else if (w === 'staff') {
-    rect(c, hx, 1, 1, 13, '#6b4a2a');
-    px(c, hx, 0, L.c2);
-    px(c, hx, 1, L.c2);
-  } else if (w === 'bow') {
-    rect(c, hx + 1, 4, 1, 8, '#a8743c');
-    px(c, hx, 3, '#a8743c');
-    px(c, hx, 12, '#a8743c');
-    rect(c, hx, 4, 1, 8, 'rgba(255,255,255,0.4)');
-  }
+  return finish(cv);
 }
 
 /** Restos de una criatura (cadáver). */
@@ -797,6 +507,7 @@ export function corpseSprite(look: Look): HTMLCanvasElement {
     for (const x of [4, 7, 10]) rect(c, x, 7, 1, 2, shade(look.c1, -0.3));
   }
   rect(c, 2, 13, 12, 2, 'rgba(120,10,10,0.55)');
+  cv = finish(cv);
   creatureCache.set(key, cv);
   return cv;
 }
@@ -1041,6 +752,7 @@ export function itemIcon(d: ItemDef): HTMLCanvasElement {
       px(c, 5, 6, '#ffe070');
       break;
   }
+  cv = finish(cv);
   iconCache.set(d.id, cv);
   return cv;
 }
